@@ -1,0 +1,1 @@
+# Stock Predictor – source package
