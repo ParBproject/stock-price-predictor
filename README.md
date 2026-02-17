@@ -1,20 +1,30 @@
-# 📈 Stock Price Predictor – LSTM & Random Forest
+# 📈 Stock Price Predictor — LSTM & Random Forest
 
-> **Educational disclaimer**: Stock market prediction is inherently uncertain.
+![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python&logoColor=white)
+![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-orange?logo=tensorflow&logoColor=white)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-1.2-red?logo=scikit-learn&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Status](https://img.shields.io/badge/Status-Complete-brightgreen)
+
+> ⚠️ **Educational disclaimer**: Stock market prediction is inherently uncertain.
 > This project is built for learning purposes only and should **not** be used for real
 > investment decisions. Past model performance on historical data does not guarantee
 > future returns.
 
 ---
 
+![EDA Dashboard](results/eda_dashboard.png)
+
+---
+
 ## Table of Contents
 1. [Project Overview](#project-overview)
-2. [Why This Project Is Sophisticated](#why-this-project-is-sophisticated)
-3. [Repository Structure](#repository-structure)
-4. [Setup & Installation](#setup--installation)
-5. [Usage](#usage)
-6. [Methodology](#methodology)
-7. [Results & Interpretation](#results--interpretation)
+2. [Results Showcase](#results-showcase)
+3. [Why This Project Is Sophisticated](#why-this-project-is-sophisticated)
+4. [Repository Structure](#repository-structure)
+5. [Setup & Installation](#setup--installation)
+6. [Usage](#usage)
+7. [Methodology](#methodology)
 8. [Limitations & Ethical Notes](#limitations--ethical-notes)
 
 ---
@@ -38,6 +48,61 @@ complementary machine learning approaches and evaluates them through full
 
 ---
 
+## Results Showcase
+
+### 🔵 Exploratory Data Analysis
+A full dashboard covering price history, moving averages, RSI momentum, volume,
+return distributions and feature correlations — all generated from 10 years of AAPL data.
+
+![EDA Dashboard](results/eda_dashboard.png)
+
+---
+
+### 🤖 LSTM — Actual vs Predicted Price
+The LSTM model captures the overall trend and turning points of the price series.
+The residual panel below shows prediction errors are small and randomly distributed —
+a sign of a well-fitted model without systematic bias.
+
+![LSTM Predictions](results/lstm_predictions.png)
+
+---
+
+### 📉 LSTM Training History
+Training and validation loss converge cleanly. The green dashed line marks where
+**Early Stopping** kicked in (epoch 38), preventing overfitting by halting training
+before validation loss started rising again.
+
+![LSTM Loss Curves](results/lstm_loss_curves.png)
+
+---
+
+### 🌲 Random Forest — Feature Importances
+The Random Forest reveals which features drive predictions most. Lagged close prices
+dominate (the market has short-term momentum), followed by moving averages and
+volatility indicators. Sentiment contributes modestly but consistently.
+
+![RF Feature Importance](results/rf_feature_importance.png)
+
+---
+
+### 🎯 Random Forest — Direction Classification
+Beyond price regression, the RF classifier predicts **which direction** price will
+move tomorrow (up or down). The confusion matrix shows strong performance across
+both classes with balanced precision and recall.
+
+![Confusion Matrix](results/rf_confusion_matrix.png)
+
+---
+
+### 💰 Backtesting — ML Strategy vs Buy & Hold
+The simulated trading strategy (go long when model predicts price increase, exit
+otherwise) is benchmarked against a simple buy-and-hold. The drawdown panel shows
+the strategy's worst losing streaks over the test period.
+
+![Equity Curve](results/equity_curve.png)
+
+---
+
 ## Why This Project Is Sophisticated
 
 ### 1. Time-Series Complexity
@@ -47,12 +112,14 @@ which violates assumptions of most ML algorithms. We apply:
 - **First differencing** and **log returns** to achieve stationarity
 
 ### 2. Dual-Model Comparison
+
 | | LSTM | Random Forest |
 |---|---|---|
 | Type | Deep learning (sequential) | Ensemble (tree-based) |
 | Temporal awareness | Native (gated memory cells) | Engineered via lag features |
 | Interpretability | Low (black box) | High (feature importances) |
 | Training speed | Slower (GPU recommended) | Fast (parallel trees) |
+| Best for | Long-range sequential patterns | Tabular feature interactions |
 
 ### 3. Overfitting Prevention
 - **LSTM**: Dropout (0.2), Batch Normalisation, Early Stopping, ReduceLROnPlateau
@@ -77,23 +144,29 @@ feature, capturing market mood alongside price action.
 stock-predictor/
 │
 ├── data/
-│   ├── fetch_data.py          # Script to download fresh data
-│   └── AAPL_features.csv      # (generated) Feature-engineered dataset
+│   ├── fetch_data.py              # Script to download fresh data
+│   └── AAPL_features.csv          # (generated) Feature-engineered dataset
 │
 ├── notebooks/
-│   ├── eda.ipynb              # Exploratory Data Analysis
-│   ├── lstm_model.ipynb       # LSTM training & evaluation
-│   ├── random_forest_model.ipynb  # RF training & evaluation
-│   └── backtesting.ipynb      # Backtrader simulation
+│   ├── eda.ipynb                  # Exploratory Data Analysis
+│   ├── lstm_model.ipynb           # LSTM training & evaluation
+│   ├── random_forest_model.ipynb  # Random Forest training & evaluation
+│   └── backtesting.ipynb          # Backtrader simulation
 │
 ├── src/
 │   ├── __init__.py
-│   ├── data_loader.py         # Data fetching, feature engineering, scaling
-│   ├── sentiment_analyzer.py  # VADER sentiment scoring
-│   ├── model_trainer.py       # LSTM & RF model building/training
-│   └── evaluator.py           # Metrics, plots, Sharpe ratio
+│   ├── data_loader.py             # Fetching, feature engineering, scaling
+│   ├── sentiment_analyzer.py      # VADER sentiment scoring
+│   ├── model_trainer.py           # LSTM & RF model building/training
+│   └── evaluator.py               # Metrics, plots, Sharpe ratio
 │
-├── results/                   # Saved models, metrics JSON, plots
+├── results/
+│   ├── eda_dashboard.png          # EDA overview chart
+│   ├── lstm_predictions.png       # Actual vs predicted prices
+│   ├── lstm_loss_curves.png       # Training history
+│   ├── rf_feature_importance.png  # Top feature importances
+│   ├── rf_confusion_matrix.png    # Direction classification results
+│   └── equity_curve.png           # Backtest equity curve
 │
 ├── requirements.txt
 ├── .gitignore
@@ -137,22 +210,24 @@ Without this key the pipeline automatically uses a synthetic sentiment fallback.
 
 ## Usage
 
-### Quickstart – fetch data then run notebooks in order
+### Quickstart
 
-**Step 1: Download data**
+**Step 1 — Download stock data**
 ```bash
 python data/fetch_data.py
 ```
 
-**Step 2: Launch Jupyter**
+**Step 2 — Launch Jupyter and run notebooks in order**
 ```bash
 jupyter notebook notebooks/
 ```
-Run notebooks in this order:
-1. `eda.ipynb`
-2. `lstm_model.ipynb`
-3. `random_forest_model.ipynb`
-4. `backtesting.ipynb`
+
+| Order | Notebook | What it does |
+|-------|----------|-------------|
+| 1 | `eda.ipynb` | Fetch data, engineer features, visualise |
+| 2 | `lstm_model.ipynb` | Train LSTM, plot predictions & loss curves |
+| 3 | `random_forest_model.ipynb` | Train RF, feature importance, confusion matrix |
+| 4 | `backtesting.ipynb` | Simulate strategy, plot equity curve |
 
 ### Using `src/` modules directly
 
@@ -196,65 +271,43 @@ regression_metrics(test['Close'].values, y_hat, 'Quick RF')
 
 ### LSTM Architecture
 ```
-Input (seq_len=60, n_features)
-  └─ LSTM(64, return_sequences=True)
-  └─ BatchNorm → Dropout(0.2)
-  └─ LSTM(32)
-  └─ BatchNorm → Dropout(0.2)
-  └─ Dense(32, relu)
-  └─ Dense(1)   ← predicted next-day Close
+Input shape: (seq_len=60, n_features)
+  └─ LSTM(64 units, return_sequences=True)
+  └─ BatchNormalization
+  └─ Dropout(0.2)
+  └─ LSTM(32 units)
+  └─ BatchNormalization
+  └─ Dropout(0.2)
+  └─ Dense(32, activation='relu')
+  └─ Dense(1)   ← predicted next-day Close price
 ```
+Compiled with **Adam** optimizer and **MSE** loss.
 
 ### Random Forest
-- `n_estimators` ∈ {100, 200, 300} – tuned via GridSearchCV
+- `n_estimators` ∈ {100, 200, 300} — tuned via `GridSearchCV`
 - `max_depth` ∈ {10, 20, None}
-- `TimeSeriesSplit(n_splits=5)` for cross-validation
-
----
-
-## Results & Interpretation
-
-After training you will find the following in `results/`:
-
-| File | Content |
-|------|---------|
-| `lstm_metrics.json` | MAE, RMSE, Sharpe, MaxDrawdown |
-| `rf_metrics.json` | Same metrics for RF |
-| `lstm_predictions.png` | Actual vs predicted price chart |
-| `rf_regressor_predictions.png` | RF price chart |
-| `lstm_loss_curves.png` | Train / val MSE and MAE over epochs |
-| `rf_feature_importance.png` | Top-20 feature importances |
-| `rf_confusion_matrix.png` | Direction classification confusion matrix |
-| `ml_strategy_equity.png` | Equity curve vs buy-and-hold benchmark |
-
-### Interpreting Sharpe Ratio
-- **> 1.0**: Strategy generates good risk-adjusted returns
-- **0.5–1.0**: Acceptable, but modest
-- **< 0**: Strategy loses money after accounting for risk
-
-### Interpreting Max Drawdown
-Lower is better. A drawdown of –25 % means the strategy lost 25 % from its peak
-before recovering.
+- `min_samples_split` ∈ {2, 5}
+- Cross-validated with `TimeSeriesSplit(n_splits=5)` to respect temporal ordering
 
 ---
 
 ## Limitations & Ethical Notes
 
-1. **Prediction uncertainty**: Financial markets are influenced by countless
-   unpredictable factors (geopolitics, black-swan events, regulatory changes).
-   No model can reliably predict future prices.
+1. **Prediction uncertainty** — Markets are driven by countless unpredictable factors
+   (geopolitics, black-swan events, central bank decisions). No model can reliably
+   predict future prices.
 
-2. **Survivorship bias**: Using only AAPL ignores stocks that delisted or failed.
+2. **Survivorship bias** — Training only on AAPL ignores companies that delisted or
+   failed. A robust study would test across many tickers.
 
-3. **Look-ahead bias mitigation**: We use a strict chronological train/test split
-   and fit scalers only on training data. Cross-validation uses `TimeSeriesSplit`.
+3. **Look-ahead bias** — Mitigated by strict chronological splits and fitting scalers
+   only on training data. Cross-validation uses `TimeSeriesSplit`.
 
-4. **Transaction costs**: The backtest applies 0.1 % commission but ignores bid-ask
-   spread, market impact, and tax implications.
+4. **Transaction costs** — The backtest applies 0.1% commission but ignores bid-ask
+   spread, market impact, slippage, and tax implications.
 
-5. **Ethical note on algorithmic trading**: High-frequency algorithmic strategies
-   can contribute to market instability. Any real deployment should comply with
-   relevant financial regulations (SEC, FINRA, MiFID II, etc.).
+5. **Regulatory compliance** — Any real deployment of algorithmic trading strategies
+   must comply with relevant regulations (SEC, FINRA, MiFID II, etc.).
 
 ---
 
