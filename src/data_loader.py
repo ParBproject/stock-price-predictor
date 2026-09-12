@@ -172,6 +172,48 @@ def fetch_stock_data(ticker: str = "AAPL",
     return df
 
 
+# ── Supervised Forecast Alignment ──────────────────────────────────────────────
+
+def prepare_forecast_data(df: pd.DataFrame,
+                          feature_cols: list[str],
+                          target_col: str = "Close",
+                          horizon: int = 1):
+    """Align features at time ``t`` with a future target at ``t + horizon``.
+
+    The returned feature rows contain only information from their original
+    timestamps. Targets are shifted backward so that row ``t`` predicts the
+    future value at ``t + horizon``. The corresponding future timestamps are
+    returned separately for plotting and evaluation.
+
+    Returns
+    -------
+    X : pd.DataFrame
+        Feature rows ending before the final ``horizon`` observations.
+    y : pd.Series
+        Future target values aligned positionally with ``X``.
+    target_index : pd.Index
+        Timestamps of the target observations.
+    """
+    if isinstance(horizon, bool) or not isinstance(horizon, (int, np.integer)):
+        raise TypeError("horizon must be a positive integer")
+    if horizon < 1:
+        raise ValueError("horizon must be at least 1")
+
+    required = list(dict.fromkeys([*feature_cols, target_col]))
+    missing = [col for col in required if col not in df.columns]
+    if missing:
+        raise KeyError(f"Missing required columns: {missing}")
+    if len(df) <= horizon:
+        raise ValueError("Not enough rows for the requested forecast horizon")
+
+    X = df.loc[:, feature_cols].iloc[:-horizon].copy()
+    y = df[target_col].shift(-horizon).iloc[:-horizon].copy()
+    y.name = f"{target_col}_t_plus_{horizon}"
+    target_index = df.index[horizon:].copy()
+
+    return X, y, target_index
+
+
 # ── Train / Test Split ─────────────────────────────────────────────────────────
 
 def time_series_split(df: pd.DataFrame,
