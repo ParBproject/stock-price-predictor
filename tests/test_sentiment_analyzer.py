@@ -32,3 +32,19 @@ def test_sentiment_alignment_never_backfills_future_news(monkeypatch):
         name="Sentiment",
     )
     pd.testing.assert_series_equal(result, expected)
+
+
+def test_missing_news_uses_neutral_sentiment(monkeypatch):
+    monkeypatch.setattr(
+        sentiment_analyzer,
+        "fetch_news_headlines",
+        lambda *args, **kwargs: [],
+    )
+
+    trading_days = pd.date_range("2026-01-05", "2026-01-09", freq="B")
+    result = sentiment_analyzer.build_daily_sentiment(
+        "TEST", "2026-01-05", "2026-01-09", date_index=trading_days
+    )
+
+    expected = pd.Series(0.0, index=trading_days, name="Sentiment")
+    pd.testing.assert_series_equal(result, expected)

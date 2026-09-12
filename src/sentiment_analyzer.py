@@ -69,8 +69,8 @@ def build_daily_sentiment(ticker:    str,
     """
     Returns a daily Series of mean compound VADER scores for `ticker` news.
 
-    If NEWS_API_KEY is not available, falls back to synthetic random-walk
-    scores (seeded for reproducibility) so the pipeline still runs.
+    If NEWS_API_KEY or headline data is not available, returns neutral scores
+    (0.0) so missing external data does not become a fabricated model signal.
 
     Parameters
     ----------
@@ -90,14 +90,9 @@ def build_daily_sentiment(ticker:    str,
         print(f"[Sentiment] Computed scores for {len(daily)} trading days "
               f"from {len(headlines)} headlines.")
     else:
-        # Synthetic fallback – random walk clamped to [-1, 1]
-        import numpy as np
-        np.random.seed(42)
         idx = pd.date_range(start, end, freq="B")   # business days
-        scores = np.random.randn(len(idx)).cumsum()
-        scores = scores / (np.abs(scores).max() + 1e-9)  # normalise
-        daily  = pd.Series(scores, index=idx)
-        print("[Sentiment] Using synthetic (random-walk) sentiment fallback.")
+        daily = pd.Series(0.0, index=idx)
+        print("[Sentiment] No headline data – using neutral sentiment fallback.")
 
     daily.name = "Sentiment"
 
