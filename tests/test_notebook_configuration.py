@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 
@@ -14,7 +15,7 @@ def _code_source(path: str) -> str:
 def test_backtest_sharpe_uses_annual_rate_with_daily_annualization():
     source = _code_source("notebooks/backtesting.ipynb")
 
-    assert "ANNUAL_RISK_FREE_RATE = 0.04" in source
+    assert re.search(r"ANNUAL_RISK_FREE_RATE\s*=\s*0\.04\b", source)
     assert "riskfreerate=ANNUAL_RISK_FREE_RATE" in source
     assert "timeframe=bt.TimeFrame.Days" in source
     assert "annualize=True" in source
