@@ -5,6 +5,7 @@ import pytest
 from src.backtesting import (
     commission_aware_position_size,
     next_day_direction_signals,
+    one_step_strategy_returns,
     portfolio_value_series,
 )
 
@@ -45,6 +46,55 @@ def test_next_day_direction_signals_require_one_dimensional_inputs(predicted, cu
 def test_next_day_direction_signals_reject_non_finite_values(predicted, current):
     with pytest.raises(ValueError, match="must be finite"):
         next_day_direction_signals(predicted, current)
+
+
+def test_one_step_strategy_returns_uses_known_previous_closes():
+    predicted = np.array([110.0, 109.0, 90.0])
+    actual = np.array([108.0, 107.0, 95.0])
+
+    result = one_step_strategy_returns(predicted, actual, initial_previous_close=100.0)
+
+    previous = np.array([100.0, 108.0, 107.0])
+    realized = (actual - previous) / previous
+    expected_signals = np.array([1.0, 1.0, -1.0])
+    np.testing.assert_allclose(result, expected_signals * realized)
+
+
+def test_one_step_strategy_returns_includes_first_holdout_trade():
+    result = one_step_strategy_returns(
+        np.array([105.0]),
+        np.array([104.0]),
+        initial_previous_close=100.0,
+    )
+
+    np.testing.assert_allclose(result, np.array([0.04]))
+
+
+def test_one_step_strategy_returns_handles_empty_holdout():
+    result = one_step_strategy_returns(
+        np.array([], dtype=float),
+        np.array([], dtype=float),
+        initial_previous_close=100.0,
+    )
+
+    assert result.shape == (0,)
+
+
+@pytest.mark.parametrize(
+    "predicted,actual,initial_previous_close,match",
+    [
+        (np.array([101.0, 102.0]), np.array([101.0]), 100.0, "matching shapes"),
+        (np.array([[101.0]]), np.array([101.0]), 100.0, "must be 1-D"),
+        (np.array([np.nan]), np.array([101.0]), 100.0, "must be finite"),
+        (np.array([101.0]), np.array([0.0]), 100.0, "must be positive"),
+        (np.array([101.0]), np.array([101.0]), 0.0, "finite and positive"),
+    ],
+)
+def test_one_step_strategy_returns_rejects_invalid_inputs(
+    predicted, actual, initial_previous_close, match
+):
+    with pytest.raises(ValueError, match=match):
+        one_step_strategy_returns(predicted, actual, initial_previous_close)
 
 
 def test_commission_aware_position_size_keeps_total_cost_within_cash():
