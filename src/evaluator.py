@@ -20,7 +20,9 @@ RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
 
-# ── Regression Metrics ─────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# Regression Metrics
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def regression_metrics(y_true: np.ndarray,
                        y_pred: np.ndarray,
@@ -38,7 +40,9 @@ def regression_metrics(y_true: np.ndarray,
     return metrics
 
 
-# ── Classification Metrics ─────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# Classification Metrics
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def classification_metrics(y_true: np.ndarray,
                             y_pred: np.ndarray,
@@ -51,13 +55,19 @@ def classification_metrics(y_true: np.ndarray,
 
     metrics = {"Accuracy": acc, "Precision": prec, "Recall": rec, "F1": f1}
     print(f"\n── {label} Classification Metrics ──────────────")
-    print(classification_report(y_true, y_pred,
-                                 target_names=["Down", "Up"],
-                                 zero_division=0))
+    print(classification_report(
+        y_true,
+        y_pred,
+        labels=[0, 1],
+        target_names=["Down", "Up"],
+        zero_division=0,
+    ))
     return metrics
 
 
-# ── Sharpe Ratio ───────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# Sharpe Ratio
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def sharpe_ratio(returns: np.ndarray | pd.Series,
                  risk_free_rate: float = 0.04,
@@ -91,7 +101,9 @@ def max_drawdown(equity_curve: np.ndarray | pd.Series) -> float:
     return mdd
 
 
-# ── Plots ──────────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# Plots
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def plot_predictions(y_true: np.ndarray,
                      y_pred: np.ndarray,
@@ -165,7 +177,7 @@ def plot_confusion_matrix(y_true: np.ndarray,
                            y_pred: np.ndarray,
                            label:  str = "RF Classifier",
                            save:   bool = True):
-    cm = confusion_matrix(y_true, y_pred)
+    cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
     fig, ax = plt.subplots(figsize=(5, 4))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
                 xticklabels=["Down", "Up"],
