@@ -2,7 +2,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.data_loader import build_holdout_sequences, prepare_forecast_data
+from src.data_loader import (
+    build_holdout_sequences,
+    build_sequences,
+    prepare_forecast_data,
+)
 
 
 def test_prepare_forecast_data_aligns_next_day_target():
@@ -62,6 +66,77 @@ def test_prepare_forecast_data_rejects_non_integer_horizon(horizon):
 
     with pytest.raises(TypeError, match="positive integer"):
         prepare_forecast_data(df, ["feature"], horizon=horizon)
+
+
+def test_build_sequences_returns_expected_windows_and_targets():
+    data = np.array(
+        [
+            [1.0, 10.0],
+            [2.0, 20.0],
+            [3.0, 30.0],
+            [4.0, 40.0],
+        ]
+    )
+
+    X, y = build_sequences(data, seq_len=2, target_idx=1)
+
+    expected_X = np.array(
+        [
+            [[1.0, 10.0], [2.0, 20.0]],
+            [[2.0, 20.0], [3.0, 30.0]],
+        ]
+    )
+    expected_y = np.array([30.0, 40.0])
+    np.testing.assert_array_equal(X, expected_X)
+    np.testing.assert_array_equal(y, expected_y)
+
+
+def test_build_sequences_short_input_preserves_empty_3d_shape():
+    data = np.arange(6, dtype=float).reshape(3, 2)
+
+    X, y = build_sequences(data, seq_len=3, target_idx=1)
+
+    assert X.shape == (0, 3, 2)
+    assert y.shape == (0,)
+    assert X.dtype == data.dtype
+    assert y.dtype == data.dtype
+
+
+@pytest.mark.parametrize("seq_len", [0, -1])
+def test_build_sequences_rejects_non_positive_sequence_length(seq_len):
+    data = np.arange(12, dtype=float).reshape(6, 2)
+
+    with pytest.raises(ValueError, match="at least 1"):
+        build_sequences(data, seq_len=seq_len)
+
+
+@pytest.mark.parametrize("seq_len", [1.5, True, "3"])
+def test_build_sequences_rejects_non_integer_sequence_length(seq_len):
+    data = np.arange(12, dtype=float).reshape(6, 2)
+
+    with pytest.raises(TypeError, match="positive integer"):
+        build_sequences(data, seq_len=seq_len)
+
+
+def test_build_sequences_requires_two_dimensional_input():
+    with pytest.raises(ValueError, match="2-D"):
+        build_sequences(np.arange(6, dtype=float), seq_len=2)
+
+
+@pytest.mark.parametrize("target_idx", [2, -3])
+def test_build_sequences_rejects_out_of_bounds_target_index(target_idx):
+    data = np.arange(12, dtype=float).reshape(6, 2)
+
+    with pytest.raises(IndexError, match="out of bounds"):
+        build_sequences(data, seq_len=2, target_idx=target_idx)
+
+
+@pytest.mark.parametrize("target_idx", [1.5, True, "1"])
+def test_build_sequences_rejects_non_integer_target_index(target_idx):
+    data = np.arange(12, dtype=float).reshape(6, 2)
+
+    with pytest.raises(TypeError, match="target_idx must be an integer"):
+        build_sequences(data, seq_len=2, target_idx=target_idx)
 
 
 def test_build_holdout_sequences_uses_training_tail_for_first_target():
