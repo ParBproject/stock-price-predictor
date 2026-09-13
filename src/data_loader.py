@@ -220,8 +220,22 @@ def prepare_forecast_data(df: pd.DataFrame,
 
 def time_series_split(df: pd.DataFrame,
                       train_ratio: float = 0.80):
-    """Chronological split – no shuffle to prevent look-ahead bias."""
+    """Chronological split with non-empty train and test partitions."""
+    if isinstance(train_ratio, bool) or not isinstance(
+        train_ratio, (int, float, np.integer, np.floating)
+    ):
+        raise TypeError("train_ratio must be a real number between 0 and 1")
+
+    train_ratio = float(train_ratio)
+    if not np.isfinite(train_ratio) or not 0.0 < train_ratio < 1.0:
+        raise ValueError("train_ratio must be finite and strictly between 0 and 1")
+
     split = int(len(df) * train_ratio)
+    if split <= 0 or split >= len(df):
+        raise ValueError(
+            "Not enough rows for train_ratio to create non-empty train and test splits"
+        )
+
     return df.iloc[:split], df.iloc[split:]
 
 
