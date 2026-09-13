@@ -96,6 +96,24 @@ def commission_aware_position_size(
     return int(np.floor(cash / cost_per_share))
 
 
+def is_terminal_order(order) -> bool:
+    """Return whether a Backtrader order has reached a terminal status.
+
+    The helper deliberately uses attributes from the supplied order object so
+    the utility module does not need to import Backtrader. Terminal states must
+    release any pending-order guard in a strategy; submitted, accepted, and
+    partial orders remain active.
+    """
+    terminal_statuses = (
+        order.Completed,
+        order.Canceled,
+        order.Margin,
+        order.Rejected,
+        order.Expired,
+    )
+    return order.status in terminal_statuses
+
+
 def portfolio_value_series(
     portfolio_values,
     dates,

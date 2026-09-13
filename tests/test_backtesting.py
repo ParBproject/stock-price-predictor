@@ -4,10 +4,25 @@ import pytest
 
 from src.backtesting import (
     commission_aware_position_size,
+    is_terminal_order,
     next_day_direction_signals,
     one_step_strategy_returns,
     portfolio_value_series,
 )
+
+
+class DummyOrder:
+    Submitted = 1
+    Accepted = 2
+    Partial = 3
+    Completed = 4
+    Canceled = 5
+    Expired = 6
+    Margin = 7
+    Rejected = 8
+
+    def __init__(self, status):
+        self.status = status
 
 
 def test_next_day_direction_signals_compare_forecast_with_current_close():
@@ -139,6 +154,28 @@ def test_commission_aware_position_size_rejects_invalid_inputs(
 ):
     with pytest.raises(ValueError, match=match):
         commission_aware_position_size(cash, price, commission_rate)
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        DummyOrder.Completed,
+        DummyOrder.Canceled,
+        DummyOrder.Margin,
+        DummyOrder.Rejected,
+        DummyOrder.Expired,
+    ],
+)
+def test_terminal_order_statuses_release_pending_order(status):
+    assert is_terminal_order(DummyOrder(status))
+
+
+@pytest.mark.parametrize(
+    "status",
+    [DummyOrder.Submitted, DummyOrder.Accepted, DummyOrder.Partial],
+)
+def test_active_order_statuses_remain_pending(status):
+    assert not is_terminal_order(DummyOrder(status))
 
 
 def test_portfolio_value_series_aligns_one_value_per_date():
