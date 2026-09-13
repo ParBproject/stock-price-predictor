@@ -29,9 +29,9 @@ def fetch_news_headlines(query: str,
                          api_key:   str = NEWS_API_KEY,
                          page_size: int = 100) -> list[dict]:
     """
-    Fetches headlines from NewsAPI.org.
+    Fetches all available headline pages from NewsAPI.org.
     Returns a list of {date, headline} dicts.
-    Requires a free API key: https://newsapi.org
+    Requires a NewsAPI key: https://newsapi.org
     """
     if not api_key:
         print("[Sentiment] NEWS_API_KEY not set – returning empty list.")
@@ -47,15 +47,31 @@ def fetch_news_headlines(query: str,
         "pageSize": page_size,
         "apiKey":   api_key,
     }
+    results = []
+    page = 1
+
     try:
-        resp = requests.get(url, params=params, timeout=10)
-        resp.raise_for_status()
-        articles = resp.json().get("articles", [])
-        results = []
-        for art in articles:
-            pub = art.get("publishedAt", "")[:10]   # YYYY-MM-DD
-            title = art.get("title") or art.get("description") or ""
-            results.append({"date": pub, "headline": title})
+        while True:
+            params["page"] = page
+            resp = requests.get(url, params=params, timeout=10)
+            resp.raise_for_status()
+            payload = resp.json()
+            articles = payload.get("articles", [])
+
+            for art in articles:
+                pub = art.get("publishedAt", "")[:10]   # YYYY-MM-DD
+                title = art.get("title") or art.get("description") or ""
+                results.append({"date": pub, "headline": title})
+
+            total_results = payload.get("totalResults")
+            if not articles:
+                break
+            if isinstance(total_results, int) and len(results) >= total_results:
+                break
+            if len(articles) < page_size:
+                break
+            page += 1
+
         return results
     except Exception as e:
         print(f"[Sentiment] NewsAPI request failed: {e}")

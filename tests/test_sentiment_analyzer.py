@@ -3,6 +3,56 @@ import pandas as pd
 import src.sentiment_analyzer as sentiment_analyzer
 
 
+def test_fetch_news_headlines_paginates_until_total_results(monkeypatch):
+    payloads = {
+        1: {
+            "totalResults": 3,
+            "articles": [
+                {"publishedAt": "2026-01-03T12:00:00Z", "title": "newest"},
+                {"publishedAt": "2026-01-02T12:00:00Z", "title": "middle"},
+            ],
+        },
+        2: {
+            "totalResults": 3,
+            "articles": [
+                {"publishedAt": "2026-01-01T12:00:00Z", "title": "oldest"},
+            ],
+        },
+    }
+    requested_pages = []
+
+    class FakeResponse:
+        def __init__(self, payload):
+            self._payload = payload
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return self._payload
+
+    def fake_get(url, params, timeout):
+        requested_pages.append(params["page"])
+        return FakeResponse(payloads[params["page"]])
+
+    monkeypatch.setattr(sentiment_analyzer.requests, "get", fake_get)
+
+    result = sentiment_analyzer.fetch_news_headlines(
+        "TEST",
+        "2026-01-01",
+        "2026-01-03",
+        api_key="test-key",
+        page_size=2,
+    )
+
+    assert requested_pages == [1, 2]
+    assert result == [
+        {"date": "2026-01-03", "headline": "newest"},
+        {"date": "2026-01-02", "headline": "middle"},
+        {"date": "2026-01-01", "headline": "oldest"},
+    ]
+
+
 def test_sentiment_alignment_never_backfills_future_news(monkeypatch):
     headlines = [
         {"date": "2026-01-07", "headline": "positive"},
