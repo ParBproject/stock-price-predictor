@@ -103,7 +103,7 @@ def add_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# ── Stationarity ───────────────────────────────────────────────────────────────
+# ── Stationarity ────────────────────────────────────────────────────────────────
 
 def adf_test(series: pd.Series, name: str = "Series") -> dict:
     """
@@ -260,6 +260,44 @@ def build_sequences(data: np.ndarray,
         X.append(data[i - seq_len: i, :])
         y.append(data[i, target_idx])
     return np.array(X), np.array(y)
+
+
+def build_holdout_sequences(train_data: np.ndarray,
+                            test_data: np.ndarray,
+                            seq_len: int = 60,
+                            target_idx: int = -1):
+    """Build holdout sequences with trailing training history as context.
+
+    Every row in ``test_data`` is kept as a target. The first test target uses
+    the final ``seq_len`` training observations as its history; later targets
+    roll forward through already-observed test rows. No future holdout row is
+    included in a sequence.
+    """
+    if isinstance(seq_len, bool) or not isinstance(seq_len, (int, np.integer)):
+        raise TypeError("seq_len must be a positive integer")
+    if seq_len < 1:
+        raise ValueError("seq_len must be at least 1")
+
+    train_data = np.asarray(train_data)
+    test_data = np.asarray(test_data)
+
+    if train_data.ndim != 2 or test_data.ndim != 2:
+        raise ValueError("train_data and test_data must be 2-D arrays")
+    if train_data.shape[1] != test_data.shape[1]:
+        raise ValueError("train_data and test_data must have the same number of columns")
+    if len(train_data) < seq_len:
+        raise ValueError("train_data must contain at least seq_len rows")
+
+    n_features = train_data.shape[1]
+    if len(test_data) == 0:
+        return (
+            np.empty((0, seq_len, n_features), dtype=train_data.dtype),
+            np.empty((0,), dtype=train_data.dtype),
+        )
+
+    context = train_data[-seq_len:]
+    combined = np.concatenate([context, test_data], axis=0)
+    return build_sequences(combined, seq_len=seq_len, target_idx=target_idx)
 
 
 # ── CLI convenience ────────────────────────────────────────────────────────────
