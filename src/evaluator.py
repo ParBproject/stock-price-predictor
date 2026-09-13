@@ -152,7 +152,7 @@ def plot_loss_curves(history, save: bool = True):
 
     axes[1].plot(history.history["mae"],     label="Train MAE")
     axes[1].plot(history.history["val_mae"], label="Val MAE")
-    axes[1].set_title("MAE Loss")
+    axes[1].set_title("MAE")
     axes[1].set_xlabel("Epoch")
     axes[1].legend()
 
