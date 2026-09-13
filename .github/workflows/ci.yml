@@ -25,7 +25,7 @@ jobs:
       - name: Install quality and test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ruff pytest numpy pandas scikit-learn statsmodels yfinance requests vaderSentiment
+          python -m pip install ruff pytest numpy pandas scikit-learn statsmodels yfinance requests vaderSentiment matplotlib seaborn
 
       - name: Check syntax and critical errors
         run: ruff check src data tests --select E9,F63,F7,F82
