@@ -97,9 +97,15 @@ def build_daily_sentiment(ticker:    str,
     daily.name = "Sentiment"
 
     if date_index is not None:
-        # Only propagate information forward in time. Backfilling would leak the
-        # first future news observation into earlier trading days.
-        daily = daily.reindex(date_index).ffill().fillna(0.0)
+        # Preserve non-trading observations (for example weekend news) while
+        # propagating only information that was already known forward in time.
+        alignment_index = daily.index.union(date_index).sort_values()
+        daily = (
+            daily.reindex(alignment_index)
+            .ffill()
+            .reindex(date_index)
+            .fillna(0.0)
+        )
 
     return daily
 
