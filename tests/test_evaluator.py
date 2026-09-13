@@ -1,9 +1,42 @@
 import matplotlib
 import numpy as np
+import pandas as pd
+import pytest
 
 matplotlib.use("Agg")
 
-from src.evaluator import classification_metrics, plot_confusion_matrix
+from src.evaluator import (
+    classification_metrics,
+    plot_confusion_matrix,
+    regression_metrics,
+)
+
+
+def test_regression_metrics_treats_series_positionally_despite_different_indexes():
+    y_true = pd.Series([100.0, 200.0], index=[10, 11])
+    y_pred = pd.Series([110.0, 180.0], index=[20, 21])
+
+    metrics = regression_metrics(y_true, y_pred)
+
+    assert metrics["MAE"] == pytest.approx(15.0)
+    assert metrics["MSE"] == pytest.approx(250.0)
+    assert metrics["RMSE"] == pytest.approx(np.sqrt(250.0))
+    assert metrics["MAPE%"] == pytest.approx(10.0)
+
+
+@pytest.mark.parametrize(
+    "y_true,y_pred,match",
+    [
+        (np.array([1.0, 2.0]), np.array([1.0]), "matching shapes"),
+        (np.array([[1.0, 2.0]]), np.array([1.0, 2.0]), "one-dimensional"),
+        (np.array([]), np.array([]), "must not be empty"),
+        (np.array([1.0, np.nan]), np.array([1.0, 2.0]), "finite values"),
+        (np.array([1.0, 2.0]), np.array([1.0, np.inf]), "finite values"),
+    ],
+)
+def test_regression_metrics_rejects_invalid_inputs(y_true, y_pred, match):
+    with pytest.raises(ValueError, match=match):
+        regression_metrics(y_true, y_pred)
 
 
 def test_classification_metrics_handles_all_up_holdout(capsys):
