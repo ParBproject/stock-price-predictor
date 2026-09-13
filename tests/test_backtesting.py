@@ -1,9 +1,11 @@
 import numpy as np
+import pandas as pd
 import pytest
 
 from src.backtesting import (
     commission_aware_position_size,
     next_day_direction_signals,
+    portfolio_value_series,
 )
 
 
@@ -87,3 +89,27 @@ def test_commission_aware_position_size_rejects_invalid_inputs(
 ):
     with pytest.raises(ValueError, match=match):
         commission_aware_position_size(cash, price, commission_rate)
+
+
+def test_portfolio_value_series_aligns_one_value_per_date():
+    dates = pd.date_range("2026-01-05", periods=3, freq="B")
+    values = [10_000.0, 10_050.0, 10_025.0]
+
+    result = portfolio_value_series(values, dates)
+
+    expected = pd.Series(values, index=dates, name="Portfolio Value")
+    pd.testing.assert_series_equal(result, expected)
+
+
+def test_portfolio_value_series_rejects_length_mismatch():
+    dates = pd.date_range("2026-01-05", periods=3, freq="B")
+
+    with pytest.raises(ValueError, match="same length"):
+        portfolio_value_series([10_000.0, 10_050.0, 10_025.0, 10_100.0], dates)
+
+
+def test_portfolio_value_series_rejects_non_finite_values():
+    dates = pd.date_range("2026-01-05", periods=2, freq="B")
+
+    with pytest.raises(ValueError, match="must be finite"):
+        portfolio_value_series([10_000.0, np.nan], dates)

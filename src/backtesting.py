@@ -1,6 +1,7 @@
 """Utilities for turning next-day forecasts into backtest trading signals."""
 
 import numpy as np
+import pandas as pd
 
 
 def next_day_direction_signals(
@@ -56,3 +57,25 @@ def commission_aware_position_size(
 
     cost_per_share = price * (1.0 + commission_rate)
     return int(np.floor(cash / cost_per_share))
+
+
+def portfolio_value_series(
+    portfolio_values,
+    dates,
+    name: str = "Portfolio Value",
+) -> pd.Series:
+    """Build a portfolio-value Series with one value per backtest date."""
+    values = np.asarray(portfolio_values, dtype=float)
+    index = pd.Index(dates)
+
+    if values.ndim != 1:
+        raise ValueError("portfolio_values must be one-dimensional")
+    if len(values) != len(index):
+        raise ValueError(
+            "portfolio_values and dates must have the same length "
+            f"({len(values)} values for {len(index)} dates)"
+        )
+    if not np.isfinite(values).all():
+        raise ValueError("portfolio_values must be finite")
+
+    return pd.Series(values, index=index, name=name)
