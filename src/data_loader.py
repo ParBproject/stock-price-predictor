@@ -255,11 +255,35 @@ def build_sequences(data: np.ndarray,
     X : np.ndarray  shape (n_samples, seq_len, n_features)
     y : np.ndarray  shape (n_samples,)
     """
+    if isinstance(seq_len, bool) or not isinstance(seq_len, (int, np.integer)):
+        raise TypeError("seq_len must be a positive integer")
+    if seq_len < 1:
+        raise ValueError("seq_len must be at least 1")
+    if isinstance(target_idx, bool) or not isinstance(target_idx, (int, np.integer)):
+        raise TypeError("target_idx must be an integer")
+
+    data = np.asarray(data)
+    if data.ndim != 2:
+        raise ValueError("data must be a 2-D array")
+
+    n_features = data.shape[1]
+    normalized_target_idx = int(target_idx)
+    if normalized_target_idx < 0:
+        normalized_target_idx += n_features
+    if not 0 <= normalized_target_idx < n_features:
+        raise IndexError("target_idx is out of bounds for the feature columns")
+
+    if len(data) <= seq_len:
+        return (
+            np.empty((0, seq_len, n_features), dtype=data.dtype),
+            np.empty((0,), dtype=data.dtype),
+        )
+
     X, y = [], []
     for i in range(seq_len, len(data)):
         X.append(data[i - seq_len: i, :])
-        y.append(data[i, target_idx])
-    return np.array(X), np.array(y)
+        y.append(data[i, normalized_target_idx])
+    return np.asarray(X), np.asarray(y)
 
 
 def build_holdout_sequences(train_data: np.ndarray,
