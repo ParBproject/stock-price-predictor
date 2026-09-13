@@ -165,7 +165,9 @@ def fetch_stock_data(ticker: str = "AAPL",
     print(f"[DataLoader] Shape after feature engineering & dropna: {df.shape}")
 
     if save_path:
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        parent = os.path.dirname(save_path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
         df.to_csv(save_path)
         print(f"[DataLoader] Saved to {save_path}")
 
