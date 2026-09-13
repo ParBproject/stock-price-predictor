@@ -27,7 +27,19 @@ os.makedirs(RESULTS_DIR, exist_ok=True)
 def regression_metrics(y_true: np.ndarray,
                        y_pred: np.ndarray,
                        label:  str = "Model") -> dict:
-    """Returns MAE, MSE, RMSE and MAPE."""
+    """Returns MAE, MSE, RMSE and MAPE using positional sample alignment."""
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+
+    if y_true.ndim != 1 or y_pred.ndim != 1:
+        raise ValueError("y_true and y_pred must be one-dimensional")
+    if y_true.shape != y_pred.shape:
+        raise ValueError("y_true and y_pred must have matching shapes")
+    if len(y_true) == 0:
+        raise ValueError("y_true and y_pred must not be empty")
+    if not np.isfinite(y_true).all() or not np.isfinite(y_pred).all():
+        raise ValueError("y_true and y_pred must contain only finite values")
+
     mae  = mean_absolute_error(y_true, y_pred)
     mse  = mean_squared_error(y_true, y_pred)
     rmse = np.sqrt(mse)
