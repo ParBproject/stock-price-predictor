@@ -7,6 +7,7 @@ matplotlib.use("Agg")
 
 from src.evaluator import (
     classification_metrics,
+    max_drawdown_from_returns,
     plot_confusion_matrix,
     regression_metrics,
 )
@@ -71,6 +72,33 @@ def test_classification_metrics_handles_all_down_holdout(capsys):
     }
     assert "Down" in output
     assert "Up" in output
+
+
+def test_max_drawdown_from_returns_includes_first_period_loss():
+    result = max_drawdown_from_returns(np.array([-0.20, 0.10]))
+
+    assert result == pytest.approx(-0.20)
+
+
+def test_max_drawdown_from_returns_empty_series_has_no_drawdown():
+    result = max_drawdown_from_returns(np.array([], dtype=float))
+
+    assert result == pytest.approx(0.0)
+
+
+@pytest.mark.parametrize(
+    "returns,initial_equity,match",
+    [
+        (np.array([[0.1]]), 1.0, "one-dimensional"),
+        (np.array([np.nan]), 1.0, "finite values"),
+        (np.array([0.1]), 0.0, "finite and positive"),
+    ],
+)
+def test_max_drawdown_from_returns_rejects_invalid_inputs(
+    returns, initial_equity, match
+):
+    with pytest.raises(ValueError, match=match):
+        max_drawdown_from_returns(returns, initial_equity=initial_equity)
 
 
 def test_plot_confusion_matrix_keeps_two_by_two_binary_shape(monkeypatch):

@@ -78,7 +78,7 @@ def classification_metrics(y_true: np.ndarray,
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Sharpe Ratio
+# Finance Metrics
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def sharpe_ratio(returns: np.ndarray | pd.Series,
@@ -111,6 +111,34 @@ def max_drawdown(equity_curve: np.ndarray | pd.Series) -> float:
     mdd    = dd.min()
     print(f"  Max Drawdown: {mdd:.2%}")
     return mdd
+
+
+def max_drawdown_from_returns(
+    returns: np.ndarray | pd.Series,
+    initial_equity: float = 1.0,
+) -> float:
+    """Compute max drawdown from periodic returns including starting equity.
+
+    The initial equity point is prepended before the first return is applied, so
+    a loss in the first strategy period is measured against the actual starting
+    capital rather than being treated as the initial peak.
+    """
+    returns = np.asarray(returns, dtype=float)
+    initial_equity = float(initial_equity)
+
+    if returns.ndim != 1:
+        raise ValueError("returns must be one-dimensional")
+    if not np.isfinite(returns).all():
+        raise ValueError("returns must contain only finite values")
+    if not np.isfinite(initial_equity) or initial_equity <= 0:
+        raise ValueError("initial_equity must be finite and positive")
+
+    equity_curve = np.empty(len(returns) + 1, dtype=float)
+    equity_curve[0] = initial_equity
+    if len(returns):
+        equity_curve[1:] = initial_equity * np.cumprod(1.0 + returns)
+
+    return max_drawdown(equity_curve)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
