@@ -53,6 +53,46 @@ def test_fetch_news_headlines_paginates_until_total_results(monkeypatch):
     ]
 
 
+def test_fetch_news_headlines_preserves_prior_pages_after_later_failure(monkeypatch):
+    requested_pages = []
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "totalResults": 4,
+                "articles": [
+                    {"publishedAt": "2026-01-04T12:00:00Z", "title": "newest"},
+                    {"publishedAt": "2026-01-03T12:00:00Z", "title": "older"},
+                ],
+            }
+
+    def fake_get(url, params, timeout):
+        page = params["page"]
+        requested_pages.append(page)
+        if page == 1:
+            return FakeResponse()
+        raise sentiment_analyzer.requests.RequestException("temporary failure")
+
+    monkeypatch.setattr(sentiment_analyzer.requests, "get", fake_get)
+
+    result = sentiment_analyzer.fetch_news_headlines(
+        "TEST",
+        "2026-01-01",
+        "2026-01-04",
+        api_key="test-key",
+        page_size=2,
+    )
+
+    assert requested_pages == [1, 2]
+    assert result == [
+        {"date": "2026-01-04", "headline": "newest"},
+        {"date": "2026-01-03", "headline": "older"},
+    ]
+
+
 def test_sentiment_alignment_never_backfills_future_news(monkeypatch):
     headlines = [
         {"date": "2026-01-07", "headline": "positive"},
