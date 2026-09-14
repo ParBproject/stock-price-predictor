@@ -94,8 +94,9 @@ def sharpe_ratio(returns: np.ndarray | pd.Series,
     periods_per_year : 252 for daily data
     """
     returns = np.asarray(returns)
-    daily_rf = risk_free_rate / periods_per_year
-    excess   = returns - daily_rf
+    # Match Backtrader's default `convertrate=True` annual-to-period conversion.
+    periodic_rf = (1.0 + risk_free_rate) ** (1.0 / periods_per_year) - 1.0
+    excess = returns - periodic_rf
     if excess.std() == 0:
         return 0.0
     sr = (excess.mean() / excess.std()) * np.sqrt(periods_per_year)
