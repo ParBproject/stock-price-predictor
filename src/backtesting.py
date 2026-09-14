@@ -64,6 +64,72 @@ def long_flat_returns_from_signals(
     return signals * realized_returns - turnover * commission_rate
 
 
+def next_open_long_flat_returns(
+    signals: np.ndarray,
+    target_open: np.ndarray,
+    target_close: np.ndarray,
+    commission_rate: float = 0.0,
+) -> np.ndarray:
+    """Return long/flat strategy returns with market orders filled next open.
+
+    ``signals[i]`` is known only after the feature bar preceding target bar
+    ``i`` has closed. A change in desired position therefore executes at
+    ``target_open[i]`` rather than at the preceding close.
+
+    The period return follows the actual position path:
+
+    - flat -> long: enter at current open, then earn current open-to-close;
+    - long -> long: stay invested across the overnight gap and current session;
+    - long -> flat: remain invested through the overnight gap, then exit at open;
+    - flat -> flat: remain in cash.
+
+    Commission is deducted once for each entry or exit transition. The initial
+    state is flat, matching the Backtrader strategy.
+    """
+    signals = np.asarray(signals, dtype=float)
+    target_open = np.asarray(target_open, dtype=float)
+    target_close = np.asarray(target_close, dtype=float)
+    commission_rate = float(commission_rate)
+
+    if signals.ndim != 1 or target_open.ndim != 1 or target_close.ndim != 1:
+        raise ValueError("signals, target_open, and target_close must be 1-D")
+    if not (signals.shape == target_open.shape == target_close.shape):
+        raise ValueError("signals, target_open, and target_close must have matching shapes")
+    if not np.isfinite(signals).all():
+        raise ValueError("signals must be finite")
+    if not np.isin(signals, [0.0, 1.0]).all():
+        raise ValueError("signals must contain only 0 (flat) or 1 (long)")
+    if not np.isfinite(target_open).all() or not np.isfinite(target_close).all():
+        raise ValueError("target_open and target_close must be finite")
+    if (target_open <= 0).any() or (target_close <= 0).any():
+        raise ValueError("target_open and target_close must be positive")
+    if not np.isfinite(commission_rate) or commission_rate < 0:
+        raise ValueError("commission_rate must be finite and non-negative")
+    if len(signals) == 0:
+        return np.empty((0,), dtype=float)
+
+    strategy_returns = np.zeros(len(signals), dtype=float)
+    previous_signal = 0.0
+
+    for i, signal in enumerate(signals):
+        if previous_signal == 0.0 and signal == 1.0:
+            period_return = target_close[i] / target_open[i] - 1.0
+        elif previous_signal == 1.0 and signal == 1.0:
+            period_return = target_close[i] / target_close[i - 1] - 1.0
+        elif previous_signal == 1.0 and signal == 0.0:
+            period_return = target_open[i] / target_close[i - 1] - 1.0
+        else:
+            period_return = 0.0
+
+        if signal != previous_signal:
+            period_return -= commission_rate
+
+        strategy_returns[i] = period_return
+        previous_signal = signal
+
+    return strategy_returns
+
+
 def one_step_strategy_returns(
     predicted_close: np.ndarray,
     actual_close: np.ndarray,
