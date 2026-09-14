@@ -36,12 +36,13 @@ def one_step_strategy_returns(
     actual_close: np.ndarray,
     initial_previous_close: float,
 ) -> np.ndarray:
-    """Return realized long/short returns for one-step close forecasts.
+    """Return realized long/flat returns for one-step close forecasts.
 
     The first holdout forecast is compared with ``initial_previous_close``
     (normally the final training close). Each later forecast is compared with
-    the preceding realized holdout close. This mirrors the information that
-    would actually have been known before each forecast target occurred.
+    the preceding realized holdout close. A forecast above the known prior
+    close is long (1); otherwise the strategy is flat (0), matching the
+    Backtrader strategy's buy/exit behavior.
     """
     predicted = np.asarray(predicted_close, dtype=float)
     actual = np.asarray(actual_close, dtype=float)
@@ -64,7 +65,7 @@ def one_step_strategy_returns(
         ([initial_previous_close], actual[:-1])
     )
     realized_returns = (actual - previous_close) / previous_close
-    signals = np.where(predicted > previous_close, 1.0, -1.0)
+    signals = (predicted > previous_close).astype(float)
     return signals * realized_returns
 
 
