@@ -71,8 +71,18 @@ def test_one_step_strategy_returns_uses_known_previous_closes():
 
     previous = np.array([100.0, 108.0, 107.0])
     realized = (actual - previous) / previous
-    expected_signals = np.array([1.0, 1.0, -1.0])
+    expected_signals = np.array([1.0, 1.0, 0.0])
     np.testing.assert_allclose(result, expected_signals * realized)
+
+
+def test_one_step_strategy_returns_down_forecast_stays_flat_in_falling_market():
+    result = one_step_strategy_returns(
+        np.array([90.0]),
+        np.array([95.0]),
+        initial_previous_close=100.0,
+    )
+
+    np.testing.assert_allclose(result, np.array([0.0]))
 
 
 def test_one_step_strategy_returns_includes_first_holdout_trade():
