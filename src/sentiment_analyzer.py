@@ -14,6 +14,8 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # Optional: set NEWS_API_KEY environment variable to fetch live headlines
 NEWS_API_KEY = os.getenv("NEWS_API_KEY", "")
+MARKET_TIMEZONE = "America/New_York"
+MARKET_CLOSE_HOUR = 16
 
 _analyzer = SentimentIntensityAnalyzer()
 
@@ -21,6 +23,26 @@ _analyzer = SentimentIntensityAnalyzer()
 def score_headline(text: str) -> float:
     """Returns VADER compound score in [-1, 1]."""
     return _analyzer.polarity_scores(str(text))["compound"]
+
+
+def headline_effective_market_date(published_at: str) -> str:
+    """Map a publication timestamp to the date its information was tradable.
+
+    NewsAPI timestamps are normalized to U.S. Eastern time. Headlines published
+    at or after the 4:00 PM market close become effective on the next calendar
+    day; downstream trading-day alignment carries weekend/holiday observations
+    to the next market row.
+    """
+    timestamp = pd.to_datetime(published_at, utc=True, errors="coerce")
+    if pd.isna(timestamp):
+        return ""
+
+    market_time = timestamp.tz_convert(MARKET_TIMEZONE)
+    effective_date = market_time.normalize()
+    if market_time.hour >= MARKET_CLOSE_HOUR:
+        effective_date += pd.Timedelta(days=1)
+
+    return effective_date.strftime("%Y-%m-%d")
 
 
 def fetch_news_headlines(query: str,
@@ -63,7 +85,7 @@ def fetch_news_headlines(query: str,
         articles = payload.get("articles", [])
 
         for art in articles:
-            pub = art.get("publishedAt", "")[:10]   # YYYY-MM-DD
+            pub = headline_effective_market_date(art.get("publishedAt", ""))
             title = art.get("title") or art.get("description") or ""
             results.append({"date": pub, "headline": title})
 
