@@ -21,7 +21,9 @@ from tensorflow.keras.optimizers import Adam
 
 # ── scikit-learn ───────────────────────────────────────────────────────────────
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
+from sklearn.model_selection import GridSearchCV
+
+from src.validation import make_forecast_time_series_split
 
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
@@ -126,14 +128,15 @@ def train_random_forest_regressor(X_train: np.ndarray,
                                   y_train: np.ndarray,
                                   tune: bool = True,
                                   n_splits: int = 5,
-                                  save_path: str | None = None
+                                  save_path: str | None = None,
+                                  forecast_horizon: int = 1
                                   ) -> RandomForestRegressor:
     """
     Trains a RandomForestRegressor.
 
-    When tune=True, performs GridSearchCV with TimeSeriesSplit to find
-    the best (n_estimators, max_depth) combination without leaking future
-    data into cross-validation folds.
+    When tune=True, performs GridSearchCV with chronological folds and a gap
+    equal to ``forecast_horizon``. The embargo prevents shifted future targets
+    from overlapping the validation feature period.
     """
     if tune:
         param_grid = {
@@ -141,7 +144,10 @@ def train_random_forest_regressor(X_train: np.ndarray,
             "max_depth":    [None, 10, 20],
             "min_samples_split": [2, 5],
         }
-        tscv = TimeSeriesSplit(n_splits=n_splits)
+        tscv = make_forecast_time_series_split(
+            n_splits=n_splits,
+            forecast_horizon=forecast_horizon,
+        )
         rf   = RandomForestRegressor(random_state=42, n_jobs=-1)
         gs   = GridSearchCV(rf, param_grid, cv=tscv,
                             scoring="neg_mean_squared_error",
@@ -164,18 +170,22 @@ def train_random_forest_regressor(X_train: np.ndarray,
 def train_random_forest_classifier(X_train: np.ndarray,
                                    y_train: np.ndarray,
                                    tune: bool = False,
-                                   save_path: str | None = None
+                                   save_path: str | None = None,
+                                   forecast_horizon: int = 1
                                    ) -> RandomForestClassifier:
     """
     Binary classifier predicting price direction: 1 = up, 0 = down.
-    y_train should be binary labels derived from price returns.
+    y_train should be binary labels derived from next-period price returns.
     """
     if tune:
         param_grid = {
             "n_estimators": [100, 200],
             "max_depth":    [None, 10],
         }
-        tscv  = TimeSeriesSplit(n_splits=5)
+        tscv = make_forecast_time_series_split(
+            n_splits=5,
+            forecast_horizon=forecast_horizon,
+        )
         rf    = RandomForestClassifier(random_state=42, n_jobs=-1)
         gs    = GridSearchCV(rf, param_grid, cv=tscv,
                              scoring="f1", n_jobs=-1, verbose=1)
