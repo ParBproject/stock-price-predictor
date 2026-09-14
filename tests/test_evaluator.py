@@ -10,6 +10,7 @@ from src.evaluator import (
     max_drawdown_from_returns,
     plot_confusion_matrix,
     regression_metrics,
+    sharpe_ratio,
 )
 
 
@@ -72,6 +73,24 @@ def test_classification_metrics_handles_all_down_holdout(capsys):
     }
     assert "Down" in output
     assert "Up" in output
+
+
+def test_sharpe_ratio_matches_backtrader_risk_free_conversion():
+    returns = np.array([0.001, 0.002, -0.0005, 0.003])
+    annual_risk_free = 0.04
+    periods_per_year = 252
+
+    result = sharpe_ratio(
+        returns,
+        risk_free_rate=annual_risk_free,
+        periods_per_year=periods_per_year,
+    )
+
+    periodic_rf = (1.0 + annual_risk_free) ** (1.0 / periods_per_year) - 1.0
+    excess = returns - periodic_rf
+    expected = excess.mean() / excess.std() * np.sqrt(periods_per_year)
+
+    assert result == pytest.approx(expected)
 
 
 def test_max_drawdown_from_returns_includes_first_period_loss():
