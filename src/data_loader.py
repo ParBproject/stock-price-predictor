@@ -132,11 +132,18 @@ def fetch_stock_data(ticker: str = "AAPL",
                      end:   str = "2024-12-31",
                      save_path: str | None = None) -> pd.DataFrame:
     """
-    Downloads OHLCV data via yfinance, engineers features,
-    and optionally saves to CSV.
+    Downloads split/dividend-adjusted OHLCV data via yfinance, engineers
+    features, and optionally saves to CSV. Adjustment is requested explicitly
+    so behavior is stable across yfinance versions.
     """
     print(f"[DataLoader] Fetching {ticker} from {start} to {end} ...")
-    df = yf.download(ticker, start=start, end=end, progress=False)
+    df = yf.download(
+        ticker,
+        start=start,
+        end=end,
+        progress=False,
+        auto_adjust=True,
+    )
 
     if df.empty:
         raise ValueError(f"No data returned for ticker '{ticker}'. "
