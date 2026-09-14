@@ -6,18 +6,20 @@ Falls back to neutral scores (0.0) if no API key / data is available,
 so the rest of the pipeline always has a 'Sentiment' column to work with.
 """
 
+from functools import lru_cache
 import os
 import datetime
 import requests
 import pandas as pd
+import pandas_market_calendars as mcal
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # Optional: set NEWS_API_KEY environment variable to fetch live headlines
 NEWS_API_KEY = os.getenv("NEWS_API_KEY", "")
 MARKET_TIMEZONE = "America/New_York"
-MARKET_CLOSE_HOUR = 16
 
 _analyzer = SentimentIntensityAnalyzer()
+_NYSE_CALENDAR = mcal.get_calendar("NYSE")
 
 
 def score_headline(text: str) -> float:
@@ -25,12 +27,27 @@ def score_headline(text: str) -> float:
     return _analyzer.polarity_scores(str(text))["compound"]
 
 
+@lru_cache(maxsize=512)
+def _nyse_market_close(local_date: str) -> pd.Timestamp | None:
+    """Return the actual NYSE close for a local calendar date, if it is a session."""
+    schedule = _NYSE_CALENDAR.schedule(start_date=local_date, end_date=local_date)
+    if schedule.empty:
+        return None
+
+    close = pd.Timestamp(schedule.iloc[0]["market_close"])
+    if close.tzinfo is None:
+        close = close.tz_localize("UTC")
+    return close.tz_convert(MARKET_TIMEZONE)
+
+
 def headline_effective_market_date(published_at: str) -> str:
     """Map a publication timestamp to the date its information was tradable.
 
-    NewsAPI timestamps are normalized to U.S. Eastern time. Headlines published
-    at or after the 4:00 PM market close become effective on the next calendar
-    day; downstream trading-day alignment carries weekend/holiday observations
+    NewsAPI timestamps are normalized to U.S. Eastern time. On NYSE sessions,
+    headlines published at or after that session's actual market close become
+    effective on the next calendar day. This handles scheduled early closes as
+    well as normal 4:00 PM closes. On non-trading days the local calendar date
+    is preserved so downstream trading-day alignment can carry the observation
     to the next market row.
     """
     timestamp = pd.to_datetime(published_at, utc=True, errors="coerce")
@@ -39,7 +56,10 @@ def headline_effective_market_date(published_at: str) -> str:
 
     market_time = timestamp.tz_convert(MARKET_TIMEZONE)
     effective_date = market_time.normalize()
-    if market_time.hour >= MARKET_CLOSE_HOUR:
+    local_date = market_time.strftime("%Y-%m-%d")
+    market_close = _nyse_market_close(local_date)
+
+    if market_close is not None and market_time >= market_close:
         effective_date += pd.Timedelta(days=1)
 
     return effective_date.strftime("%Y-%m-%d")
