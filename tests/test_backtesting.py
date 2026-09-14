@@ -5,6 +5,7 @@ import pytest
 from src.backtesting import (
     commission_aware_position_size,
     is_terminal_order,
+    long_flat_returns_from_signals,
     next_day_direction_signals,
     one_step_strategy_returns,
     portfolio_value_series,
@@ -63,6 +64,33 @@ def test_next_day_direction_signals_reject_non_finite_values(predicted, current)
         next_day_direction_signals(predicted, current)
 
 
+def test_long_flat_returns_charge_commission_only_on_position_turnover():
+    signals = np.array([1, 1, 0, 1], dtype=float)
+    realized = np.array([0.02, 0.03, -0.04, 0.05])
+
+    result = long_flat_returns_from_signals(
+        signals, realized, commission_rate=0.001
+    )
+
+    expected = np.array([0.019, 0.03, -0.001, 0.049])
+    np.testing.assert_allclose(result, expected)
+
+
+def test_long_flat_returns_reject_invalid_signals():
+    with pytest.raises(ValueError, match="only 0 .* or 1"):
+        long_flat_returns_from_signals(
+            np.array([1.0, -1.0]), np.array([0.01, 0.02])
+        )
+
+
+@pytest.mark.parametrize("commission_rate", [-0.001, np.nan])
+def test_long_flat_returns_reject_invalid_commission(commission_rate):
+    with pytest.raises(ValueError, match="finite and non-negative"):
+        long_flat_returns_from_signals(
+            np.array([1.0]), np.array([0.01]), commission_rate=commission_rate
+        )
+
+
 def test_one_step_strategy_returns_uses_known_previous_closes():
     predicted = np.array([110.0, 109.0, 90.0])
     actual = np.array([108.0, 107.0, 95.0])
@@ -73,6 +101,18 @@ def test_one_step_strategy_returns_uses_known_previous_closes():
     realized = (actual - previous) / previous
     expected_signals = np.array([1.0, 1.0, 0.0])
     np.testing.assert_allclose(result, expected_signals * realized)
+
+
+def test_one_step_strategy_returns_deducts_commission_on_entry_and_exit():
+    result = one_step_strategy_returns(
+        np.array([105.0, 99.0]),
+        np.array([104.0, 100.0]),
+        initial_previous_close=100.0,
+        commission_rate=0.001,
+    )
+
+    expected = np.array([0.039, -0.001])
+    np.testing.assert_allclose(result, expected)
 
 
 def test_one_step_strategy_returns_down_forecast_stays_flat_in_falling_market():
