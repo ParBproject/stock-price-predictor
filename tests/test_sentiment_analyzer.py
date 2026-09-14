@@ -1,6 +1,28 @@
 import pandas as pd
+import pytest
 
 import src.sentiment_analyzer as sentiment_analyzer
+
+
+@pytest.mark.parametrize(
+    "published_at,expected_date",
+    [
+        # Winter: Eastern Standard Time is UTC-5.
+        ("2026-01-05T20:59:59Z", "2026-01-05"),
+        ("2026-01-05T21:00:00Z", "2026-01-06"),
+        # Summer: Eastern Daylight Time is UTC-4.
+        ("2026-07-06T19:59:59Z", "2026-07-06"),
+        ("2026-07-06T20:00:00Z", "2026-07-07"),
+    ],
+)
+def test_headline_effective_market_date_respects_eastern_close(
+    published_at, expected_date
+):
+    assert sentiment_analyzer.headline_effective_market_date(published_at) == expected_date
+
+
+def test_headline_effective_market_date_rejects_invalid_timestamp():
+    assert sentiment_analyzer.headline_effective_market_date("not-a-timestamp") == ""
 
 
 def test_fetch_news_headlines_paginates_until_total_results(monkeypatch):
