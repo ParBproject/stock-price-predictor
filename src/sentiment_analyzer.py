@@ -50,32 +50,33 @@ def fetch_news_headlines(query: str,
     results = []
     page = 1
 
-    try:
-        while True:
-            params["page"] = page
+    while True:
+        params["page"] = page
+        try:
             resp = requests.get(url, params=params, timeout=10)
             resp.raise_for_status()
             payload = resp.json()
-            articles = payload.get("articles", [])
+        except Exception as e:
+            print(f"[Sentiment] NewsAPI page {page} request failed: {e}")
+            break
 
-            for art in articles:
-                pub = art.get("publishedAt", "")[:10]   # YYYY-MM-DD
-                title = art.get("title") or art.get("description") or ""
-                results.append({"date": pub, "headline": title})
+        articles = payload.get("articles", [])
 
-            total_results = payload.get("totalResults")
-            if not articles:
-                break
-            if isinstance(total_results, int) and len(results) >= total_results:
-                break
-            if len(articles) < page_size:
-                break
-            page += 1
+        for art in articles:
+            pub = art.get("publishedAt", "")[:10]   # YYYY-MM-DD
+            title = art.get("title") or art.get("description") or ""
+            results.append({"date": pub, "headline": title})
 
-        return results
-    except Exception as e:
-        print(f"[Sentiment] NewsAPI request failed: {e}")
-        return []
+        total_results = payload.get("totalResults")
+        if not articles:
+            break
+        if isinstance(total_results, int) and len(results) >= total_results:
+            break
+        if len(articles) < page_size:
+            break
+        page += 1
+
+    return results
 
 
 def build_daily_sentiment(ticker:    str,
