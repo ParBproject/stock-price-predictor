@@ -15,10 +15,33 @@ import src.sentiment_analyzer as sentiment_analyzer
         ("2026-07-06T20:00:00Z", "2026-07-07"),
     ],
 )
-def test_headline_effective_market_date_respects_eastern_close(
+def test_headline_effective_market_date_respects_regular_nyse_close(
     published_at, expected_date
 ):
     assert sentiment_analyzer.headline_effective_market_date(published_at) == expected_date
+
+
+@pytest.mark.parametrize(
+    "published_at,expected_date",
+    [
+        # Black Friday 2024 was a scheduled 1:00 PM ET NYSE close.
+        ("2024-11-29T17:59:59Z", "2024-11-29"),
+        ("2024-11-29T18:00:00Z", "2024-11-30"),
+        ("2024-11-29T19:30:00Z", "2024-11-30"),
+    ],
+)
+def test_headline_effective_market_date_respects_nyse_early_close(
+    published_at, expected_date
+):
+    assert sentiment_analyzer.headline_effective_market_date(published_at) == expected_date
+
+
+def test_headline_effective_market_date_keeps_non_trading_local_date():
+    # Saturday has no NYSE session; downstream trading-day alignment moves it forward.
+    assert (
+        sentiment_analyzer.headline_effective_market_date("2026-01-03T23:00:00Z")
+        == "2026-01-03"
+    )
 
 
 def test_headline_effective_market_date_rejects_invalid_timestamp():
