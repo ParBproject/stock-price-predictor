@@ -7,6 +7,7 @@ from src.backtesting import (
     is_terminal_order,
     long_flat_returns_from_signals,
     next_day_direction_signals,
+    next_open_long_flat_returns,
     one_step_strategy_returns,
     portfolio_value_series,
 )
@@ -88,6 +89,67 @@ def test_long_flat_returns_reject_invalid_commission(commission_rate):
     with pytest.raises(ValueError, match="finite and non-negative"):
         long_flat_returns_from_signals(
             np.array([1.0]), np.array([0.01]), commission_rate=commission_rate
+        )
+
+
+def test_next_open_returns_follow_backtrader_execution_timing():
+    signals = np.array([1, 1, 0, 1], dtype=float)
+    opens = np.array([105.0, 111.0, 107.0, 98.0])
+    closes = np.array([110.0, 108.0, 100.0, 102.0])
+
+    result = next_open_long_flat_returns(
+        signals, opens, closes, commission_rate=0.001
+    )
+
+    expected = np.array(
+        [
+            110.0 / 105.0 - 1.0 - 0.001,  # flat -> long: enter at open
+            108.0 / 110.0 - 1.0,          # long -> long: hold overnight
+            107.0 / 108.0 - 1.0 - 0.001,  # long -> flat: exit at open
+            102.0 / 98.0 - 1.0 - 0.001,   # flat -> long: re-enter at open
+        ]
+    )
+    np.testing.assert_allclose(result, expected)
+
+
+def test_next_open_returns_exclude_untradeable_gap_on_entry():
+    signals = np.array([1.0])
+    opens = np.array([110.0])
+    closes = np.array([111.0])
+
+    result = next_open_long_flat_returns(signals, opens, closes)
+
+    np.testing.assert_allclose(result, np.array([111.0 / 110.0 - 1.0]))
+
+
+def test_next_open_returns_stay_zero_while_flat():
+    result = next_open_long_flat_returns(
+        np.array([0.0, 0.0]),
+        np.array([100.0, 105.0]),
+        np.array([103.0, 101.0]),
+        commission_rate=0.001,
+    )
+
+    np.testing.assert_array_equal(result, np.zeros(2))
+
+
+@pytest.mark.parametrize(
+    "signals,opens,closes,commission_rate,match",
+    [
+        (np.array([1.0, 0.0]), np.array([100.0]), np.array([101.0]), 0.0, "matching shapes"),
+        (np.array([[1.0]]), np.array([100.0]), np.array([101.0]), 0.0, "must be 1-D"),
+        (np.array([2.0]), np.array([100.0]), np.array([101.0]), 0.0, "only 0 .* or 1"),
+        (np.array([1.0]), np.array([0.0]), np.array([101.0]), 0.0, "must be positive"),
+        (np.array([1.0]), np.array([100.0]), np.array([np.nan]), 0.0, "must be finite"),
+        (np.array([1.0]), np.array([100.0]), np.array([101.0]), -0.001, "finite and non-negative"),
+    ],
+)
+def test_next_open_returns_reject_invalid_inputs(
+    signals, opens, closes, commission_rate, match
+):
+    with pytest.raises(ValueError, match=match):
+        next_open_long_flat_returns(
+            signals, opens, closes, commission_rate=commission_rate
         )
 
 
