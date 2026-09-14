@@ -28,6 +28,21 @@ def _stub_external_data(monkeypatch):
     monkeypatch.setattr(data_loader, "adf_test", lambda *args, **kwargs: {})
 
 
+def test_fetch_stock_data_requests_adjusted_prices_explicitly(monkeypatch):
+    captured = {}
+
+    def fake_download(*args, **kwargs):
+        captured.update(kwargs)
+        return _raw_stock_data()
+
+    monkeypatch.setattr(data_loader.yf, "download", fake_download)
+    monkeypatch.setattr(data_loader, "adf_test", lambda *args, **kwargs: {})
+
+    data_loader.fetch_stock_data()
+
+    assert captured["auto_adjust"] is True
+
+
 def test_fetch_stock_data_saves_basename_in_current_directory(monkeypatch, tmp_path):
     _stub_external_data(monkeypatch)
     monkeypatch.chdir(tmp_path)
