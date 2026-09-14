@@ -31,10 +31,44 @@ def next_day_direction_signals(
     return (predicted > current).astype(np.int8)
 
 
+def long_flat_returns_from_signals(
+    signals: np.ndarray,
+    realized_returns: np.ndarray,
+    commission_rate: float = 0.0,
+) -> np.ndarray:
+    """Apply long/flat signals to returns and charge commission on turnover.
+
+    Signals are position states: ``1`` is long and ``0`` is flat. Commission is
+    deducted when the state changes (entry, exit, or re-entry), matching the
+    transaction events in the Backtrader strategy. The initial position is flat.
+    """
+    signals = np.asarray(signals, dtype=float)
+    realized_returns = np.asarray(realized_returns, dtype=float)
+    commission_rate = float(commission_rate)
+
+    if signals.ndim != 1 or realized_returns.ndim != 1:
+        raise ValueError("signals and realized_returns must be 1-D")
+    if signals.shape != realized_returns.shape:
+        raise ValueError("signals and realized_returns must have matching shapes")
+    if not np.isfinite(signals).all() or not np.isfinite(realized_returns).all():
+        raise ValueError("signals and realized_returns must be finite")
+    if not np.isin(signals, [0.0, 1.0]).all():
+        raise ValueError("signals must contain only 0 (flat) or 1 (long)")
+    if not np.isfinite(commission_rate) or commission_rate < 0:
+        raise ValueError("commission_rate must be finite and non-negative")
+    if len(signals) == 0:
+        return np.empty((0,), dtype=float)
+
+    previous_signals = np.concatenate(([0.0], signals[:-1]))
+    turnover = np.abs(signals - previous_signals)
+    return signals * realized_returns - turnover * commission_rate
+
+
 def one_step_strategy_returns(
     predicted_close: np.ndarray,
     actual_close: np.ndarray,
     initial_previous_close: float,
+    commission_rate: float = 0.0,
 ) -> np.ndarray:
     """Return realized long/flat returns for one-step close forecasts.
 
@@ -42,7 +76,8 @@ def one_step_strategy_returns(
     (normally the final training close). Each later forecast is compared with
     the preceding realized holdout close. A forecast above the known prior
     close is long (1); otherwise the strategy is flat (0), matching the
-    Backtrader strategy's buy/exit behavior.
+    Backtrader strategy's buy/exit behavior. Transaction costs are deducted on
+    position changes when ``commission_rate`` is non-zero.
     """
     predicted = np.asarray(predicted_close, dtype=float)
     actual = np.asarray(actual_close, dtype=float)
@@ -66,7 +101,9 @@ def one_step_strategy_returns(
     )
     realized_returns = (actual - previous_close) / previous_close
     signals = (predicted > previous_close).astype(float)
-    return signals * realized_returns
+    return long_flat_returns_from_signals(
+        signals, realized_returns, commission_rate=commission_rate
+    )
 
 
 def commission_aware_position_size(
