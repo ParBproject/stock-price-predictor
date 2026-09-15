@@ -200,6 +200,55 @@ def commission_aware_position_size(
     return int(np.floor(cash / cost_per_share))
 
 
+def buy_and_hold_equity_values(
+    opens: np.ndarray,
+    closes: np.ndarray,
+    initial_cash: float,
+    commission_rate: float = 0.0,
+    entry_index: int = 1,
+) -> np.ndarray:
+    """Mark a Buy & Hold benchmark from the first executable market open.
+
+    The benchmark remains in cash before ``entry_index``. At that bar's open it
+    buys the largest whole-share position affordable after commission, then
+    marks the remaining cash plus shares to each close. No synthetic exit fee is
+    charged because the benchmark is not liquidated at the end of the series.
+    """
+    opens = np.asarray(opens, dtype=float)
+    closes = np.asarray(closes, dtype=float)
+    initial_cash = float(initial_cash)
+    commission_rate = float(commission_rate)
+
+    if opens.ndim != 1 or closes.ndim != 1:
+        raise ValueError("opens and closes must be one-dimensional")
+    if opens.shape != closes.shape:
+        raise ValueError("opens and closes must have matching shapes")
+    if not np.isfinite(opens).all() or not np.isfinite(closes).all():
+        raise ValueError("opens and closes must contain only finite values")
+    if (opens <= 0).any() or (closes <= 0).any():
+        raise ValueError("opens and closes must be positive")
+    if not np.isfinite(initial_cash) or initial_cash < 0:
+        raise ValueError("initial_cash must be finite and non-negative")
+    if not np.isfinite(commission_rate) or commission_rate < 0:
+        raise ValueError("commission_rate must be finite and non-negative")
+    if isinstance(entry_index, bool) or not isinstance(entry_index, (int, np.integer)):
+        raise TypeError("entry_index must be a non-negative integer")
+    if entry_index < 0:
+        raise ValueError("entry_index must be non-negative")
+
+    equity = np.full(len(closes), initial_cash, dtype=float)
+    if len(closes) == 0 or entry_index >= len(closes):
+        return equity
+
+    shares = commission_aware_position_size(
+        initial_cash, opens[entry_index], commission_rate
+    )
+    entry_cost = shares * opens[entry_index] * (1.0 + commission_rate)
+    remaining_cash = initial_cash - entry_cost
+    equity[entry_index:] = remaining_cash + shares * closes[entry_index:]
+    return equity
+
+
 def is_terminal_order(order) -> bool:
     """Return whether a Backtrader order has reached a terminal status.
 
