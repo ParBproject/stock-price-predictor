@@ -3,6 +3,7 @@ import pandas as pd
 import pytest
 
 from src.backtesting import (
+    buy_and_hold_equity_values,
     commission_aware_position_size,
     is_terminal_order,
     long_flat_returns_from_signals,
@@ -103,10 +104,10 @@ def test_next_open_returns_follow_backtrader_execution_timing():
 
     expected = np.array(
         [
-            110.0 / 105.0 - 1.0 - 0.001,  # flat -> long: enter at open
-            108.0 / 110.0 - 1.0,          # long -> long: hold overnight
-            107.0 / 108.0 - 1.0 - 0.001,  # long -> flat: exit at open
-            102.0 / 98.0 - 1.0 - 0.001,   # flat -> long: re-enter at open
+            110.0 / 105.0 - 1.0 - 0.001,
+            108.0 / 110.0 - 1.0,
+            107.0 / 108.0 - 1.0 - 0.001,
+            102.0 / 98.0 - 1.0 - 0.001,
         ]
     )
     np.testing.assert_allclose(result, expected)
@@ -266,6 +267,84 @@ def test_commission_aware_position_size_rejects_invalid_inputs(
 ):
     with pytest.raises(ValueError, match=match):
         commission_aware_position_size(cash, price, commission_rate)
+
+
+def test_buy_and_hold_enters_on_first_executable_next_open():
+    opens = np.array([100.0, 110.0, 120.0])
+    closes = np.array([105.0, 115.0, 125.0])
+
+    result = buy_and_hold_equity_values(
+        opens,
+        closes,
+        initial_cash=1_000.0,
+        commission_rate=0.001,
+        entry_index=1,
+    )
+
+    shares = 9
+    remaining_cash = 1_000.0 - shares * 110.0 * 1.001
+    expected = np.array(
+        [
+            1_000.0,
+            remaining_cash + shares * 115.0,
+            remaining_cash + shares * 125.0,
+        ]
+    )
+    np.testing.assert_allclose(result, expected)
+
+
+def test_buy_and_hold_excludes_first_feature_bar_overnight_gap():
+    result = buy_and_hold_equity_values(
+        np.array([100.0, 150.0]),
+        np.array([100.0, 150.0]),
+        initial_cash=1_000.0,
+        entry_index=1,
+    )
+
+    np.testing.assert_allclose(result, np.array([1_000.0, 1_000.0]))
+
+
+def test_buy_and_hold_stays_in_cash_when_no_entry_bar_exists():
+    result = buy_and_hold_equity_values(
+        np.array([100.0]),
+        np.array([105.0]),
+        initial_cash=1_000.0,
+        entry_index=1,
+    )
+
+    np.testing.assert_array_equal(result, np.array([1_000.0]))
+
+
+@pytest.mark.parametrize(
+    "opens,closes,initial_cash,commission_rate,entry_index,error,match",
+    [
+        (np.array([100.0, 101.0]), np.array([100.0]), 1_000.0, 0.0, 1, ValueError, "matching shapes"),
+        (np.array([[100.0]]), np.array([100.0]), 1_000.0, 0.0, 0, ValueError, "one-dimensional"),
+        (np.array([0.0]), np.array([100.0]), 1_000.0, 0.0, 0, ValueError, "must be positive"),
+        (np.array([100.0]), np.array([np.nan]), 1_000.0, 0.0, 0, ValueError, "finite values"),
+        (np.array([100.0]), np.array([100.0]), -1.0, 0.0, 0, ValueError, "non-negative"),
+        (np.array([100.0]), np.array([100.0]), 1_000.0, -0.001, 0, ValueError, "non-negative"),
+        (np.array([100.0]), np.array([100.0]), 1_000.0, 0.0, -1, ValueError, "non-negative"),
+        (np.array([100.0]), np.array([100.0]), 1_000.0, 0.0, True, TypeError, "integer"),
+    ],
+)
+def test_buy_and_hold_rejects_invalid_inputs(
+    opens,
+    closes,
+    initial_cash,
+    commission_rate,
+    entry_index,
+    error,
+    match,
+):
+    with pytest.raises(error, match=match):
+        buy_and_hold_equity_values(
+            opens,
+            closes,
+            initial_cash=initial_cash,
+            commission_rate=commission_rate,
+            entry_index=entry_index,
+        )
 
 
 @pytest.mark.parametrize(
