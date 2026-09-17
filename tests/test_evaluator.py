@@ -93,6 +93,48 @@ def test_sharpe_ratio_matches_backtrader_risk_free_conversion():
     assert result == pytest.approx(expected)
 
 
+def test_sharpe_ratio_keeps_zero_volatility_behavior():
+    assert sharpe_ratio(np.array([0.01, 0.01, 0.01]), risk_free_rate=0.0) == 0.0
+
+
+@pytest.mark.parametrize(
+    "returns,match",
+    [
+        (np.array([]), "must not be empty"),
+        (np.array([[0.01, 0.02]]), "one-dimensional"),
+        (np.array([0.01, np.nan]), "finite values"),
+        (np.array([0.01, np.inf]), "finite values"),
+    ],
+)
+def test_sharpe_ratio_rejects_invalid_returns(returns, match):
+    with pytest.raises(ValueError, match=match):
+        sharpe_ratio(returns)
+
+
+@pytest.mark.parametrize("periods_per_year", [0, -1])
+def test_sharpe_ratio_rejects_non_positive_periods(periods_per_year):
+    with pytest.raises(ValueError, match="at least 1"):
+        sharpe_ratio(np.array([0.01, 0.02]), periods_per_year=periods_per_year)
+
+
+@pytest.mark.parametrize("periods_per_year", [1.5, True, "252"])
+def test_sharpe_ratio_rejects_non_integer_periods(periods_per_year):
+    with pytest.raises(TypeError, match="positive integer"):
+        sharpe_ratio(np.array([0.01, 0.02]), periods_per_year=periods_per_year)
+
+
+@pytest.mark.parametrize("risk_free_rate", [np.nan, np.inf, -1.0, -1.1])
+def test_sharpe_ratio_rejects_invalid_risk_free_rates(risk_free_rate):
+    with pytest.raises(ValueError):
+        sharpe_ratio(np.array([0.01, 0.02]), risk_free_rate=risk_free_rate)
+
+
+@pytest.mark.parametrize("risk_free_rate", [True, "0.04"])
+def test_sharpe_ratio_rejects_non_numeric_risk_free_rates(risk_free_rate):
+    with pytest.raises(TypeError, match="real number"):
+        sharpe_ratio(np.array([0.01, 0.02]), risk_free_rate=risk_free_rate)
+
+
 def test_max_drawdown_from_returns_includes_first_period_loss():
     result = max_drawdown_from_returns(np.array([-0.20, 0.10]))
 
