@@ -93,13 +93,38 @@ def sharpe_ratio(returns: np.ndarray | pd.Series,
     risk_free_rate   : annual risk-free rate (default 4 % ≈ T-bill 2024)
     periods_per_year : 252 for daily data
     """
-    returns = np.asarray(returns)
+    returns = np.asarray(returns, dtype=float)
+
+    if returns.ndim != 1:
+        raise ValueError("returns must be one-dimensional")
+    if len(returns) == 0:
+        raise ValueError("returns must not be empty")
+    if not np.isfinite(returns).all():
+        raise ValueError("returns must contain only finite values")
+    if isinstance(periods_per_year, bool) or not isinstance(
+        periods_per_year, (int, np.integer)
+    ):
+        raise TypeError("periods_per_year must be a positive integer")
+    if periods_per_year < 1:
+        raise ValueError("periods_per_year must be at least 1")
+    if isinstance(risk_free_rate, bool) or not isinstance(
+        risk_free_rate, (int, float, np.integer, np.floating)
+    ):
+        raise TypeError("risk_free_rate must be a real number")
+
+    risk_free_rate = float(risk_free_rate)
+    if not np.isfinite(risk_free_rate):
+        raise ValueError("risk_free_rate must be finite")
+    if risk_free_rate <= -1.0:
+        raise ValueError("risk_free_rate must be greater than -1")
+
     # Match Backtrader's default `convertrate=True` annual-to-period conversion.
     periodic_rf = (1.0 + risk_free_rate) ** (1.0 / periods_per_year) - 1.0
     excess = returns - periodic_rf
-    if excess.std() == 0:
+    volatility = excess.std()
+    if volatility == 0:
         return 0.0
-    sr = (excess.mean() / excess.std()) * np.sqrt(periods_per_year)
+    sr = (excess.mean() / volatility) * np.sqrt(periods_per_year)
     print(f"  Sharpe Ratio: {sr:.4f}")
     return sr
 
