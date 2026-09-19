@@ -8,7 +8,6 @@ so the rest of the pipeline always has a 'Sentiment' column to work with.
 
 from functools import lru_cache
 import os
-import datetime
 import requests
 import pandas as pd
 import pandas_market_calendars as mcal

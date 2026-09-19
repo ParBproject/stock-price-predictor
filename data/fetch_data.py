@@ -5,7 +5,8 @@ Standalone script to download fresh stock data and save to data/.
 Run from repo root:  python data/fetch_data.py
 """
 
-import sys, os
+import os
+import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.data_loader import fetch_stock_data
