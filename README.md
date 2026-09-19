@@ -51,6 +51,23 @@ It asks a stricter sequence of questions:
 
 ## End-to-end workflow
 
+### Research architecture
+
+```mermaid
+flowchart LR
+    A[OHLCV + Optional News] --> B[Feature Engineering]
+    B --> C[Chronological Split]
+    C --> D[LSTM]
+    C --> E[Random Forest]
+    F[Random Walk Baseline] --> G[Common Evaluation]
+    D --> G
+    E --> G
+    G --> H[Return + Direction Metrics]
+    H --> I[Commission-Aware Signals]
+    I --> J[Backtest + Drawdown]
+```
+
+
 <p align="center">
   <img src="docs/visuals/ml_pipeline.svg" alt="End-to-end forecasting pipeline" width="100%" />
 </p>
