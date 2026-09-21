@@ -65,7 +65,7 @@ The two model paths use different representations but the same time-series disci
 
 Several subtle time-series and backtesting bugs were explicitly removed from the project:
 
-- **Same-day target leakage:** Random Forest features at date `t` now predict `Close[t+1]`, instead of training against the same day's close-derived target.
+- **Same-day target leakage:** Random Forest features at date `t` now predict `Close[t+1]`, instead of training against the same day's close-derived target. The holdout table that follows puts persistence beside the LSTM and the Random Forest, and labels the same-day fit as leaky.
 - **Future-news leakage:** sentiment alignment only forward-fills information already observed; dates before the first headline remain neutral.
 - **Fabricated sentiment:** missing news data returns neutral `0.0` sentiment instead of a synthetic random walk.
 - **Dropped LSTM holdout predictions:** the first test sequence now uses the final training-history window, so the initial test period is not discarded.
@@ -74,6 +74,24 @@ Several subtle time-series and backtesting bugs were explicitly removed from the
 - **Equity-curve mismatch:** the backtest records exactly one portfolio value per bar and validates value/date alignment before plotting.
 
 These cases are covered by unit tests under `tests/` and run automatically in GitHub Actions.
+
+### Next-day holdout and the same-day leak
+
+`scripts/compare_holdout_baselines.py` scores one chronological holdout. The requested window is AAPL from 2015-01-01 through 2024-12-31 (`yfinance` `end` is exclusive). After indicator warm-up the feature frame in `data/AAPL_features.csv` runs from 2015-03-16 through 2024-12-30 (2,466 rows). No news API key was set, so `Sentiment` is the neutral `0.0` fallback.
+
+Features at date `t` predict `Close[t+1]`, then `split = int(len(samples) * 0.80)`. That is the boundary in `notebooks/random_forest_model.ipynb` and `notebooks/backtesting.ipynb`. The scored targets are 2023-01-13 through 2024-12-30 (493 sessions). The LSTM notebook's test window also includes 2023-01-12; that extra session is left out so all three forecasts use the same closes.
+
+MAE is adjusted dollars from `regression_metrics`. Directional hit rate is the fraction of sessions where the forecast is on the same side of the previous close as the realized close. Up means strictly above that close, the same rule as `next_day_direction_signals`. Persistence sets tomorrow's close equal to today's close, so its hit rate is the share of holdout sessions that were not up. The LSTM number is only meaningful next to that persistence number.
+
+| Model | Sample | MAE | Directional hit rate | Leaky |
+| --- | --- | ---: | ---: | --- |
+| Persistence | holdout | 1.879523 | 0.4381 | no |
+| LSTM | holdout | 26.904755 | 0.4584 | no |
+| Random Forest | holdout | 20.702787 | 0.4523 | no |
+| Random Forest same-day (leaky) | holdout | 18.326268 | 0.5700 | yes |
+| Random Forest same-day (leaky) | in-sample fit | 0.181557 | 0.9437 | yes |
+
+The last two rows are **leaky**. They fit the same Random Forest family on `Close[t]` using features at `t`, which already determine that close. On the training dates (2015-03-16 through 2023-01-11) the fit looks tight: MAE 0.18 and a 0.94 hit rate. That is how good it looks when it cheats. It is not a forecast. On the holdout the same cheat still loses to persistence, because the forest predicts averages from training leaves and the holdout price level moves beyond the training range. Full write-up: `results/holdout_baseline.md`.
 
 ## Model & Analysis Visuals
 
@@ -94,6 +112,7 @@ Additional outputs include:
 
 - `results/lstm_loss_curves.png`
 - `results/rf_confusion_matrix.png`
+- `results/holdout_baseline.md` and `results/holdout_baseline.csv`
 
 > The notebook outputs are research snapshots. Re-run the notebooks after code changes to regenerate metrics and plots from the latest pipeline.
 
@@ -105,7 +124,10 @@ stock-price-predictor/
 │   └── workflows/
 │       └── ci.yml
 ├── data/
-│   └── fetch_data.py
+│   ├── fetch_data.py
+│   └── AAPL_features.csv
+├── scripts/
+│   └── compare_holdout_baselines.py
 ├── docs/
 │   └── visuals/
 │       ├── project_overview.svg
@@ -118,6 +140,8 @@ stock-price-predictor/
 │   └── backtesting.ipynb
 ├── results/
 │   ├── eda_dashboard.png
+│   ├── holdout_baseline.csv
+│   ├── holdout_baseline.md
 │   ├── lstm_predictions.png
 │   ├── lstm_loss_curves.png
 │   ├── rf_feature_importance.png
@@ -125,12 +149,14 @@ stock-price-predictor/
 │   └── equity_curve.png
 ├── src/
 │   ├── backtesting.py
+│   ├── baseline.py
 │   ├── data_loader.py
 │   ├── evaluator.py
 │   ├── model_trainer.py
 │   └── sentiment_analyzer.py
 ├── tests/
 │   ├── test_backtesting.py
+│   ├── test_baseline.py
 │   ├── test_data_loader.py
 │   └── test_sentiment_analyzer.py
 ├── requirements.txt
@@ -148,6 +174,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 python -m pytest -q
+python scripts/compare_holdout_baselines.py
 jupyter notebook
 ```
 

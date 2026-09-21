@@ -100,8 +100,19 @@ def dataset_fingerprint(df: pd.DataFrame) -> str:
     return digest.hexdigest()
 
 
-def load_market_frame() -> tuple[pd.DataFrame, str]:
+def load_saved_frame() -> pd.DataFrame:
+    frame = pd.read_csv(DATA_CSV, index_col=0, parse_dates=True)
+    frame.index = pd.to_datetime(frame.index)
+    return frame.sort_index()
+
+
+def load_market_frame(use_cache: bool = False) -> tuple[pd.DataFrame, str]:
     """Download the notebook universe, falling back to a previously saved CSV."""
+    if use_cache:
+        if not DATA_CSV.exists():
+            raise FileNotFoundError(f"No cached feature frame at {DATA_CSV}")
+        print(f"[Baseline] Loading cached feature frame {DATA_CSV}")
+        return load_saved_frame(), "data/AAPL_features.csv saved from yfinance"
     try:
         frame = fetch_stock_data(TICKER, START, END)
         frame = add_sentiment_to_df(frame, TICKER, START, END)
@@ -111,10 +122,7 @@ def load_market_frame() -> tuple[pd.DataFrame, str]:
                 "Market-data download failed and no committed feature CSV is available"
             ) from exc
         print(f"[Baseline] Download failed ({exc}). Loading {DATA_CSV}.")
-        frame = pd.read_csv(DATA_CSV, index_col=0, parse_dates=True)
-        frame.index = pd.to_datetime(frame.index)
-        frame = frame.sort_index()
-        return frame, f"cached csv after download failure: {exc}"
+        return load_saved_frame(), f"data/AAPL_features.csv after download failure: {exc}"
 
     DATA_CSV.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(DATA_CSV)
@@ -332,10 +340,11 @@ def slice_to_dates(series: pd.Series, dates: pd.Index) -> np.ndarray:
     return values.to_numpy(dtype=float)
 
 
-def score_named(name: str, y_true, y_pred, previous, leaky: bool) -> dict:
+def score_named(name: str, y_true, y_pred, previous, leaky: bool, sample: str) -> dict:
     scores = score_forecast(y_true, y_pred, previous, label=name)
     return {
         "model": name,
+        "sample": sample,
         "leaky": leaky,
         "mae": scores["MAE"],
         "directional_hit_rate": scores["directional_hit_rate"],
@@ -343,15 +352,31 @@ def score_named(name: str, y_true, y_pred, previous, leaky: bool) -> dict:
 
 
 def fit_leaky_random_forest(df: pd.DataFrame, feature_cols: list[str], samples: dict, honest_model, dates):
-    """Refit the honest forest's hyperparameters on a same-day target."""
+    """Refit the honest forest's hyperparameters on a same-day target.
+
+    Returns the holdout prediction, the holdout closes, and the in-sample
+    prediction on the training feature dates. The in-sample score is the
+    leakage fit: features at ``t`` already determine ``Close[t]``.
+    """
     leaky_model = clone(honest_model)
-    X_train, y_train = same_day_feature_target(df, feature_cols, samples["X_train"].index)
+    train_dates = samples["X_train"].index
+    X_train, y_train = same_day_feature_target(df, feature_cols, train_dates)
     X_test, y_test = same_day_feature_target(df, feature_cols, dates)
     overlap = X_train.index.intersection(X_test.index)
     if len(overlap):
         raise RuntimeError("Leaky training dates overlap the holdout dates")
     leaky_model.fit(X_train, y_train)
-    return leaky_model.predict(X_test), y_test.to_numpy(dtype=float)
+    previous_train = df.loc[train_dates, "Close_Lag_1"].to_numpy(dtype=float)
+    if not np.isfinite(previous_train).all():
+        raise RuntimeError("Training rows are missing Close_Lag_1")
+    return {
+        "holdout_pred": leaky_model.predict(X_test),
+        "holdout_actual": y_test.to_numpy(dtype=float),
+        "train_pred": leaky_model.predict(X_train),
+        "train_actual": y_train.to_numpy(dtype=float),
+        "train_previous": previous_train,
+        "train_dates": train_dates,
+    }
 
 
 def render_markdown(report: dict) -> str:
@@ -374,7 +399,9 @@ def render_markdown(report: dict) -> str:
             f"Random Forest native holdout: {report['rf_holdout_start']} to "
             f"{report['rf_holdout_end']} ({report['n_rf_holdout']}). "
             f"LSTM test sessions: {report['lstm_test_start']} to "
-            f"{report['lstm_test_end']} ({report['n_lstm_test']})."
+            f"{report['lstm_test_end']} ({report['n_lstm_test']}). "
+            f"Leaky in-sample fit: {report['leaky_train_start']} to "
+            f"{report['leaky_train_end']} ({report['n_leaky_train']} training feature dates)."
         ),
         "",
         (
@@ -387,25 +414,29 @@ def render_markdown(report: dict) -> str:
             "hit rate is the share of holdout sessions that were not up."
         ),
         "",
-        "| Model | MAE | Directional hit rate | Leaky |",
-        "| --- | ---: | ---: | --- |",
+        "| Model | Sample | MAE | Directional hit rate | Leaky |",
+        "| --- | --- | ---: | ---: | --- |",
     ]
     for row in report["rows"]:
         lines.append(
-            f"| {row['model']} | {row['mae']:.6f} | {row['directional_hit_rate']:.4f} | "
-            f"{'yes' if row['leaky'] else 'no'} |"
+            f"| {row['model']} | {row['sample']} | {row['mae']:.6f} | "
+            f"{row['directional_hit_rate']:.4f} | {'yes' if row['leaky'] else 'no'} |"
         )
     lines.extend([
         "",
         (
-            "The same-day row is leaky. It fits the Random Forest family on "
-            "`Close[t]` using features at `t`, which already embed that close. "
-            "It is scored on the same holdout dates as the other rows and is not a forecast."
+            "Both same-day rows are leaky. They fit the Random Forest family on "
+            "`Close[t]` from features at `t`. Those features already determine that "
+            "close (`Close_Lag_1 * (1 + Pct_Change)` reconstructs it). "
+            "The in-sample row is how good that fit looks on the dates it was trained on. "
+            "The holdout row uses the same cheat on the future sessions above and is not a forecast. "
+            "A tree still predicts training leaf averages, so a new high in the holdout "
+            "is not a small error even when the close is visible in the features."
         ),
         "",
         (
-            f"Random Forest weights: {report['rf_source']}. "
-            f"LSTM weights: {report['lstm_status']}."
+            f"Random Forest artifact: {report['rf_source']} (`results/rf_regressor.pkl`). "
+            f"LSTM artifact: {report['lstm_status']} (`results/lstm_model.keras`)."
         ),
     ])
     if report.get("lstm_error"):
@@ -417,9 +448,6 @@ def render_markdown(report: dict) -> str:
 def write_report(report: dict) -> None:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     frame = pd.DataFrame(report["rows"])
-    frame["target_start"] = report["holdout_start"]
-    frame["target_end"] = report["holdout_end"]
-    frame["n_holdout"] = report["n_holdout"]
     frame.to_csv(TABLE_CSV, index=False)
     TABLE_MD.write_text(render_markdown(report), encoding="utf-8")
     TABLE_JSON.write_text(json.dumps(report, indent=2), encoding="utf-8")
@@ -436,9 +464,9 @@ def shared_dates(rf_dates: pd.Index, lstm_dates: pd.Index | None) -> pd.Index:
     return pd.Index(rf_dates).intersection(shared)
 
 
-def run(retrain: bool) -> dict:
+def run(retrain: bool, use_cache: bool = False) -> dict:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    df, source = load_market_frame()
+    df, source = load_market_frame(use_cache=use_cache)
     fingerprint = dataset_fingerprint(df)
     rf_features = present_feature_columns(df, RF_FEATURE_COLS)
     lstm_features = present_feature_columns(df, LSTM_FEATURE_COLS)
@@ -489,6 +517,7 @@ def run(retrain: bool) -> dict:
             persistence_forecast(previous),
             previous,
             leaky=False,
+            sample="holdout",
         ),
         score_named(
             "Random Forest",
@@ -496,6 +525,7 @@ def run(retrain: bool) -> dict:
             slice_to_dates(rf_pred, dates),
             previous,
             leaky=False,
+            sample="holdout",
         ),
     ]
     if lstm_pred is not None:
@@ -507,36 +537,51 @@ def run(retrain: bool) -> dict:
                 slice_to_dates(lstm_pred, dates),
                 previous,
                 leaky=False,
+                sample="holdout",
             ),
         )
 
-    leaky_pred, leaky_actual = fit_leaky_random_forest(
-        df, rf_features, samples, rf_model, dates
-    )
-    if not np.allclose(leaky_actual, y_true):
+    leaky = fit_leaky_random_forest(df, rf_features, samples, rf_model, dates)
+    if not np.allclose(leaky["holdout_actual"], y_true):
         raise RuntimeError("Leaky evaluation closes differ from the honest holdout closes")
     rows.append(
         score_named(
             "Random Forest same-day (leaky)",
-            leaky_actual,
-            leaky_pred,
+            leaky["holdout_actual"],
+            leaky["holdout_pred"],
             previous,
             leaky=True,
+            sample="holdout",
+        )
+    )
+    rows.append(
+        score_named(
+            "Random Forest same-day (leaky)",
+            leaky["train_actual"],
+            leaky["train_pred"],
+            leaky["train_previous"],
+            leaky=True,
+            sample="in-sample fit",
         )
     )
 
-    same_dates = (
-        lstm_test_index is not None
-        and pd.Index(lstm_test_index).equals(pd.Index(samples["target_dates"]))
-    )
-    if same_dates:
+    rf_index = pd.Index(samples["target_dates"])
+    lstm_index = None if lstm_test_index is None else pd.Index(lstm_test_index)
+    if lstm_index is not None and rf_index.equals(lstm_index):
         definition = (
             "One chronological holdout: features observed at date t predict Close[t+1], "
             "then the first 80% of those shifted samples are training and the rest are "
             "the holdout (`split = int(len(samples) * 0.80)`). This is the boundary in "
             "`notebooks/random_forest_model.ipynb` and `notebooks/backtesting.ipynb`. "
-            "The LSTM test dates from `notebooks/lstm_model.ipynb` are these same sessions, "
-            "so persistence, LSTM, and Random Forest are scored on the same closes."
+            "The LSTM test dates from `notebooks/lstm_model.ipynb` are these same sessions."
+        )
+    elif lstm_index is not None and rf_index.isin(lstm_index).all():
+        definition = (
+            "Chronological holdout from the Random Forest and backtesting notebooks: "
+            "features at date t predict Close[t+1], with `split = int(len(samples) * 0.80)`. "
+            "The LSTM notebook's test window contains this holdout plus one earlier session. "
+            "That extra session is not scored, so persistence, LSTM, and Random Forest "
+            "use the same closes."
         )
     elif lstm_pred is None:
         definition = (
@@ -559,6 +604,16 @@ def run(retrain: bool) -> dict:
     rf_start, rf_end, n_rf = _span(samples["target_dates"])
     lstm_start, lstm_end, n_lstm = _span(lstm_test_index)
     holdout_start, holdout_end, n_holdout = _span(dates)
+    train_start, train_end, n_train = _span(leaky["train_dates"])
+    for row in rows:
+        if row["sample"] == "in-sample fit":
+            row["target_start"] = train_start
+            row["target_end"] = train_end
+            row["n"] = n_train
+        else:
+            row["target_start"] = holdout_start
+            row["target_end"] = holdout_end
+            row["n"] = n_holdout
 
     report = {
         "ticker": TICKER,
@@ -579,6 +634,9 @@ def run(retrain: bool) -> dict:
         "lstm_test_start": lstm_start,
         "lstm_test_end": lstm_end,
         "n_lstm_test": n_lstm,
+        "leaky_train_start": train_start,
+        "leaky_train_end": train_end,
+        "n_leaky_train": n_train,
         "rf_source": rf_source,
         "lstm_status": lstm_status,
         "lstm_error": lstm_error,
@@ -608,8 +666,14 @@ def parse_args():
         action="store_true",
         help="Train even when fingerprint-matched artifacts already exist",
     )
+    parser.add_argument(
+        "--use-cache",
+        action="store_true",
+        help="Score data/AAPL_features.csv instead of downloading again",
+    )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
-    run(retrain=parse_args().retrain)
+    args = parse_args()
+    run(retrain=args.retrain, use_cache=args.use_cache)

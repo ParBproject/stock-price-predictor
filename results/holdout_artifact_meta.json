@@ -1,0 +1,8 @@
+{
+  "dataset_fingerprint": "e104c777ea6783699a952da311d375bcdada6edbb8549c5ecffba1285923b9ac",
+  "feature_start": "2015-03-16",
+  "feature_end": "2024-12-30",
+  "feature_rows": 2466,
+  "rf_source": "loaded",
+  "lstm_status": "loaded"
+}
