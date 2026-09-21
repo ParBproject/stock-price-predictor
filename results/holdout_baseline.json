@@ -1,0 +1,84 @@
+{
+  "ticker": "AAPL",
+  "requested_start": "2015-01-01",
+  "requested_end": "2024-12-31",
+  "data_source": "data/AAPL_features.csv saved from yfinance",
+  "dataset_fingerprint": "e104c777ea6783699a952da311d375bcdada6edbb8549c5ecffba1285923b9ac",
+  "feature_rows": 2466,
+  "feature_start": "2015-03-16",
+  "feature_end": "2024-12-30",
+  "holdout_definition": "Chronological holdout from the Random Forest and backtesting notebooks: features at date t predict Close[t+1], with `split = int(len(samples) * 0.80)`. The LSTM notebook's test window contains this holdout plus one earlier session. That extra session is not scored, so persistence, LSTM, and Random Forest use the same closes.",
+  "holdout_start": "2023-01-13",
+  "holdout_end": "2024-12-30",
+  "n_holdout": 493,
+  "rf_holdout_start": "2023-01-13",
+  "rf_holdout_end": "2024-12-30",
+  "n_rf_holdout": 493,
+  "lstm_test_start": "2023-01-12",
+  "lstm_test_end": "2024-12-30",
+  "n_lstm_test": 494,
+  "leaky_train_start": "2015-03-16",
+  "leaky_train_end": "2023-01-11",
+  "n_leaky_train": 1972,
+  "rf_source": "loaded",
+  "lstm_status": "loaded",
+  "lstm_error": null,
+  "rf_params": {
+    "max_depth": 10,
+    "min_samples_split": 2,
+    "n_estimators": 100,
+    "random_state": 42
+  },
+  "rows": [
+    {
+      "model": "Persistence",
+      "sample": "holdout",
+      "leaky": false,
+      "mae": 1.8795227607897271,
+      "directional_hit_rate": 0.4381338742393509,
+      "target_start": "2023-01-13",
+      "target_end": "2024-12-30",
+      "n": 493
+    },
+    {
+      "model": "LSTM",
+      "sample": "holdout",
+      "leaky": false,
+      "mae": 26.904754826717813,
+      "directional_hit_rate": 0.45841784989858014,
+      "target_start": "2023-01-13",
+      "target_end": "2024-12-30",
+      "n": 493
+    },
+    {
+      "model": "Random Forest",
+      "sample": "holdout",
+      "leaky": false,
+      "mae": 20.702787347565597,
+      "directional_hit_rate": 0.45233265720081134,
+      "target_start": "2023-01-13",
+      "target_end": "2024-12-30",
+      "n": 493
+    },
+    {
+      "model": "Random Forest same-day (leaky)",
+      "sample": "holdout",
+      "leaky": true,
+      "mae": 18.32626754063828,
+      "directional_hit_rate": 0.5699797160243407,
+      "target_start": "2023-01-13",
+      "target_end": "2024-12-30",
+      "n": 493
+    },
+    {
+      "model": "Random Forest same-day (leaky)",
+      "sample": "in-sample fit",
+      "leaky": true,
+      "mae": 0.1815574032514021,
+      "directional_hit_rate": 0.9437119675456389,
+      "target_start": "2015-03-16",
+      "target_end": "2023-01-11",
+      "n": 1972
+    }
+  ]
+}
