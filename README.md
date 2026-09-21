@@ -1,5 +1,13 @@
 # Stock Price Predictor — LSTM, Random Forest & Backtesting
 
+## For an AI data analyst application
+
+**Frame this as forecasting hygiene, not a trading product.** The thing to defend is leakage control: next-day targets, train-only scaling, no future news. The charts below are the analysis surface. A careless same-day target would make the fit look brilliant and be wrong.
+
+<p align="center"><img src="results/eda_dashboard.png" alt="Exploratory analysis dashboard" width="100%"></p>
+<p align="center"><img src="results/lstm_predictions.png" alt="LSTM predictions versus actual prices" width="49%"> <img src="results/rf_feature_importance.png" alt="Random forest feature importance" width="49%"></p>
+<p align="center"><img src="docs/visuals/correctness_safeguards.svg" alt="Leakage and backtest safeguards" width="100%"></p>
+
 <p align="center">
   <img src="docs/visuals/project_overview.svg" alt="Stock Price Predictor project overview" width="100%" />
 </p>
