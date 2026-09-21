@@ -93,6 +93,8 @@ MAE is adjusted dollars from `regression_metrics`. Directional hit rate is the f
 
 The last two rows are **leaky**. They fit the same Random Forest family on `Close[t]` using features at `t`, which already determine that close. On the training dates (2015-03-16 through 2023-01-11) the fit looks tight: MAE 0.18 and a 0.94 hit rate. That is how good it looks when it cheats. It is not a forecast. On the holdout the same cheat still loses to persistence, because the forest predicts averages from training leaves and the holdout price level moves beyond the training range. Full write-up: `results/holdout_baseline.md`.
 
+The modeling notebooks were executed and store their cell outputs. They train again on a fresh download and write `results/lstm_metrics.json` and `results/rf_metrics.json` for each notebook's own window. Those files are not this side-by-side table.
+
 ## Model & Analysis Visuals
 
 The repository also contains generated analysis outputs from the modelling notebooks.
@@ -113,6 +115,8 @@ Additional outputs include:
 - `results/lstm_loss_curves.png`
 - `results/rf_confusion_matrix.png`
 - `results/holdout_baseline.md` and `results/holdout_baseline.csv`
+- `results/rf_regressor_predictions.png`
+- `results/ml_strategy_equity.png`
 
 > The notebook outputs are research snapshots. Re-run the notebooks after code changes to regenerate metrics and plots from the latest pipeline.
 
