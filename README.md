@@ -5,10 +5,10 @@ A leakage-aware study of **next-day Apple close forecasts**. A walk-forward rand
 **Not financial advice.** This is research code. Nothing here is a recommendation to buy or sell any security. Simulated history is not future performance.
 
 <p>
-  <a href="https://github.com/ParBproject/stock-price-predictor/actions/workflows/ci.yml"><img src="https://github.com/ParBproject/stock-price-predictor/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white" alt="Python 3.12+" />
-  <img src="https://img.shields.io/badge/scikit--learn-Random%20Forest-F7931E?logo=scikitlearn&logoColor=white" alt="scikit-learn" />
-  <img src="https://img.shields.io/badge/TensorFlow-LSTM-FF6F00?logo=tensorflow&logoColor=white" alt="TensorFlow" />
+  <a href="https://github.com/ParBproject/stock-price-predictor/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ParBproject/stock-price-predictor/ci.yml?branch=main&label=CI&labelColor=0B1220&color=10B981&logo=github&logoColor=10B981" alt="CI" /></a>
+  <img src="https://img.shields.io/badge/Python-3.12%2B-10B981?logo=python&logoColor=10B981&labelColor=0B1220" alt="Python 3.12+" />
+  <img src="https://img.shields.io/badge/scikit--learn-Random%20Forest-10B981?logo=scikitlearn&logoColor=10B981&labelColor=0B1220" alt="scikit-learn" />
+  <img src="https://img.shields.io/badge/TensorFlow-LSTM-10B981?logo=tensorflow&logoColor=10B981&labelColor=0B1220" alt="TensorFlow" />
 </p>
 
 ## Live demo

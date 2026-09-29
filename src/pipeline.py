@@ -49,11 +49,16 @@ from src.data_loader import (
 from src.evaluator import (
     classification_metrics,
     max_drawdown,
+    CHART_ACCENT,
+    CHART_ACCENT_SOFT,
+    CHART_SECONDARY,
     plot_confusion_matrix,
     plot_equity_curve,
     plot_feature_importance,
     plot_loss_curves,
     plot_predictions,
+    save_chart,
+    style_chart,
     sharpe_ratio,
 )
 from src.feature_store import (
@@ -309,22 +314,23 @@ def _run_lstm(
 
 def _plot_eda(df: pd.DataFrame, ticker: str, path: Path) -> None:
     fig, axes = plt.subplots(4, 1, figsize=(12, 10))
-    axes[0].plot(df.index, df["Close"], color="#1f4e79", label="Close", linewidth=1.2)
+    axes[0].plot(df.index, df["Close"], color=CHART_SECONDARY, label="Close", linewidth=1.2)
     if "SMA_50" in df.columns:
-        axes[0].plot(df.index, df["SMA_50"], color="#e07a3d", label="SMA 50", linewidth=1.0)
+        axes[0].plot(df.index, df["SMA_50"], color=CHART_ACCENT, label="SMA 50", linewidth=1.0)
     axes[0].set_title(f"{ticker} close")
     axes[0].set_ylabel("USD")
     axes[0].legend()
-    axes[1].bar(df.index, df["Volume"], color="#9bb8d3", width=1.0)
+    axes[1].bar(df.index, df["Volume"], color=CHART_ACCENT, width=1.0)
     axes[1].set_ylabel("Volume")
-    axes[2].hist(df["Log_Return"].dropna(), bins=80, color="#1f4e79")
+    axes[2].hist(df["Log_Return"].dropna(), bins=80, color=CHART_ACCENT)
     axes[2].set_title("Log-return distribution")
-    axes[3].plot(df.index, df["RSI_14"], color="#0f6e56", linewidth=1.0)
-    axes[3].axhline(70, color="#9b2c2c", linestyle="--", linewidth=0.8)
-    axes[3].axhline(30, color="#9b2c2c", linestyle="--", linewidth=0.8)
+    axes[3].plot(df.index, df["RSI_14"], color=CHART_ACCENT, linewidth=1.0)
+    axes[3].axhline(70, color=CHART_ACCENT_SOFT, linestyle="--", linewidth=0.8)
+    axes[3].axhline(30, color=CHART_ACCENT_SOFT, linestyle="--", linewidth=0.8)
     axes[3].set_ylabel("RSI 14")
+    style_chart(fig, axes)
     fig.tight_layout()
-    fig.savefig(path, dpi=150)
+    save_chart(fig, path)
     plt.close(fig)
 
 
@@ -335,15 +341,16 @@ def _plot_baseline_bars(comparison: dict[str, dict], path: Path) -> None:
     positions = np.arange(len(names))
     width = 0.36
     fig, ax = plt.subplots(figsize=(8, 4.5))
-    ax.bar(positions - width / 2, mae, width, label="MAE", color="#1f4e79")
-    ax.bar(positions + width / 2, rmse, width, label="RMSE", color="#e07a3d")
+    ax.bar(positions - width / 2, mae, width, label="MAE", color=CHART_ACCENT)
+    ax.bar(positions + width / 2, rmse, width, label="RMSE", color=CHART_ACCENT_SOFT)
     ax.set_xticks(positions)
     ax.set_xticklabels(names)
     ax.set_ylabel("USD")
     ax.set_title("Final holdout price error versus a no-change forecast")
     ax.legend()
+    style_chart(fig, ax)
     fig.tight_layout()
-    fig.savefig(path, dpi=150)
+    save_chart(fig, path)
     plt.close(fig)
 
 
