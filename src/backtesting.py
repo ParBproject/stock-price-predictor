@@ -437,77 +437,37 @@ def equity_period_returns(equity: pd.Series | np.ndarray) -> np.ndarray:
     return values[1:] / values[:-1] - 1.0
 
 
-def run_long_flat_backtest(
-    frame: pd.DataFrame,
-    initial_cash: float = 10_000.0,
-    commission_rate: float = 0.001,
+def equity_from_period_returns(
+    returns: np.ndarray,
+    initial_cash: float,
+    dates,
 ) -> pd.Series:
-    """Run the long/flat next-open strategy and return one value per bar.
+    """Build an equity curve that starts at ``initial_cash`` before the first return.
 
-    Backtrader is imported inside the function so the rest of this module can
-    be tested without that dependency. Market orders submitted from ``next``
-    fill on the following bar's open, matching the notebook strategy.
+    ``dates`` must contain one more timestamp than ``returns``: the starting
+    mark, then one mark after each period return.
     """
-    import backtrader as bt
+    returns = np.asarray(returns, dtype=float)
+    initial_cash = float(initial_cash)
+    dates = pd.Index(dates)
 
-    required = ["Open", "High", "Low", "Close", "Volume", "Signal"]
-    missing = [column for column in required if column not in frame.columns]
-    if missing:
-        raise KeyError(f"Backtest frame is missing columns: {missing}")
-    if frame.empty:
-        raise ValueError("Backtest frame must not be empty")
+    if returns.ndim != 1:
+        raise ValueError("returns must be one-dimensional")
+    if not np.isfinite(returns).all():
+        raise ValueError("returns must be finite")
+    if not np.isfinite(initial_cash) or initial_cash <= 0:
+        raise ValueError("initial_cash must be finite and positive")
+    if len(dates) != len(returns) + 1:
+        raise ValueError(
+            "dates must contain the starting mark plus one mark per return "
+            f"({len(dates)} dates for {len(returns)} returns)"
+        )
 
-    class MLSignalStrategy(bt.Strategy):
-        """Buy or exit from an externally computed long/flat signal."""
-
-        params = dict(signals=None, printlog=False, commission_rate=0.0)
-
-        def __init__(self):
-            self.idx = 0
-            self.signals = self.params.signals
-            self.order = None
-            self.portfolio_values = []
-
-        def next(self):
-            self.portfolio_values.append(self.broker.getvalue())
-            if self.order:
-                return
-
-            signal = self.signals[self.idx] if self.idx < len(self.signals) else -1
-            self.idx += 1
-
-            if signal == 1 and not self.position:
-                cash = self.broker.getcash()
-                size = commission_aware_position_size(
-                    cash, self.data.close[0], self.params.commission_rate
-                )
-                if size > 0:
-                    self.order = self.buy(size=size)
-            elif signal == 0 and self.position:
-                self.order = self.sell(size=self.position.size)
-
-        def notify_order(self, order):
-            if is_terminal_order(order):
-                self.order = None
-
-    prices = frame[["Open", "High", "Low", "Close", "Volume"]].copy()
-    prices.index = pd.to_datetime(prices.index)
-    if getattr(prices.index, "tz", None) is not None:
-        prices.index = prices.index.tz_localize(None)
-    prices.columns = ["open", "high", "low", "close", "volume"]
-
-    cerebro = bt.Cerebro()
-    cerebro.adddata(bt.feeds.PandasData(dataname=prices))
-    cerebro.addstrategy(
-        MLSignalStrategy,
-        signals=frame["Signal"].to_numpy(dtype=int),
-        commission_rate=commission_rate,
-    )
-    cerebro.broker.setcash(float(initial_cash))
-    cerebro.broker.setcommission(commission=float(commission_rate))
-    cerebro.broker.set_coc(False)
-    strategy = cerebro.run()[0]
-    return portfolio_value_series(strategy.portfolio_values, frame.index)
+    values = np.empty(len(dates), dtype=float)
+    values[0] = initial_cash
+    if len(returns):
+        values[1:] = initial_cash * np.cumprod(1.0 + returns)
+    return portfolio_value_series(values, dates)
 
 
 def portfolio_value_series(

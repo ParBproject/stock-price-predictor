@@ -134,11 +134,11 @@
     },
     "strategy": {
       "initial_cash": 10000.0,
-      "final_value": 10342.92178490648,
-      "total_return": 0.03429217849064803,
-      "sharpe": -0.06184362803226298,
-      "max_drawdown": -0.10188143669419839,
-      "engine": "backtrader",
+      "final_value": 10371.048099810349,
+      "total_return": 0.037104809981034936,
+      "sharpe": -0.0369857229249783,
+      "max_drawdown": -0.11596930373818942,
+      "engine": "next_open_long_flat_returns",
       "commission_rate": 0.001
     },
     "buy_and_hold": {

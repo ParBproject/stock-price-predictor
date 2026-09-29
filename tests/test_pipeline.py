@@ -69,6 +69,6 @@ def test_demo_pipeline_writes_real_computed_metrics(tmp_path):
     assert (tmp_path / "results" / "metrics.json").exists()
     assert (tmp_path / "results" / "baseline_comparison.png").exists()
     assert (tmp_path / "results" / "equity_curve.png").exists()
-    assert metrics["final_holdout"]["strategy"]["engine"] == "backtrader"
+    assert metrics["final_holdout"]["strategy"]["engine"] == "next_open_long_flat_returns"
     assert metrics["final_holdout"]["strategy"]["final_value"] > 0
     assert "--demo" in command_line(config)

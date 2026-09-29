@@ -8,6 +8,7 @@ from src.backtesting import (
     SignalLookup,
     buy_and_hold_equity_values,
     commission_aware_position_size,
+    equity_from_period_returns,
     is_terminal_order,
     long_flat_returns_from_signals,
     next_day_direction_signals,
@@ -503,6 +504,29 @@ def test_portfolio_value_series_rejects_length_mismatch():
 
     with pytest.raises(ValueError, match="same length"):
         portfolio_value_series([10_000.0, 10_050.0, 10_025.0, 10_100.0], dates)
+
+
+def test_equity_from_period_returns_starts_at_initial_cash():
+    dates = pd.date_range("2026-01-05", periods=3, freq="B")
+
+    equity = equity_from_period_returns(
+        np.array([0.10, -0.05]),
+        initial_cash=1_000.0,
+        dates=dates,
+    )
+
+    assert equity.iloc[0] == pytest.approx(1_000.0)
+    assert equity.iloc[1] == pytest.approx(1_100.0)
+    assert equity.iloc[2] == pytest.approx(1_045.0)
+
+
+def test_equity_from_period_returns_requires_a_starting_date():
+    with pytest.raises(ValueError, match="starting mark"):
+        equity_from_period_returns(
+            np.array([0.01]),
+            initial_cash=1_000.0,
+            dates=pd.date_range("2026-01-05", periods=1, freq="B"),
+        )
 
 
 def test_portfolio_value_series_rejects_non_finite_values():

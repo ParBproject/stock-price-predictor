@@ -24,10 +24,11 @@ import pandas as pd
 from src.backtesting import (
     assemble_signal_frame,
     buy_and_hold_equity_values,
+    equity_from_period_returns,
     equity_period_returns,
     next_day_direction_signals,
+    next_open_long_flat_returns,
     portfolio_value_series,
-    run_long_flat_backtest,
 )
 from src.baselines import (
     directional_accuracy,
@@ -462,8 +463,14 @@ def run_pipeline(config: PipelineConfig) -> dict:
     backtest_frame = assemble_signal_frame(
         frame, feature_index, holdout_targets, final["predicted"], signals
     )
-    strategy_equity = run_long_flat_backtest(
-        backtest_frame, config.initial_cash, config.commission_rate
+    strategy_returns = next_open_long_flat_returns(
+        signals.astype(float),
+        frame.loc[holdout_targets, "Open"].to_numpy(dtype=float),
+        final["y_test"],
+        commission_rate=config.commission_rate,
+    )
+    strategy_equity = equity_from_period_returns(
+        strategy_returns, config.initial_cash, backtest_frame.index
     )
     buy_hold_values = buy_and_hold_equity_values(
         backtest_frame["Open"].to_numpy(dtype=float),
@@ -584,7 +591,7 @@ def run_pipeline(config: PipelineConfig) -> dict:
             },
             "strategy": {
                 **_performance_block(strategy_equity, config.initial_cash, config.risk_free_rate),
-                "engine": "backtrader",
+                "engine": "next_open_long_flat_returns",
                 "commission_rate": config.commission_rate,
             },
             "buy_and_hold": _performance_block(

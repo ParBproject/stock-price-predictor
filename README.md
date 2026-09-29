@@ -57,7 +57,7 @@ Backtest of the random-forest long/flat rule on that holdout, starting from $10,
 
 | | Final value | Total return | Sharpe | Max drawdown |
 |---|---:|---:|---:|---:|
-| Model strategy | $10,342.92 | 3.43% | -0.062 | -10.19% |
+| Model strategy | $10,371.05 | 3.71% | -0.037 | -11.60% |
 | Buy and hold | $14,171.10 | 41.71% | 1.265 | -16.38% |
 
 <p align="center"><img src="results/baseline_comparison.png" alt="Final holdout MAE and RMSE for persistence, random forest, and LSTM" width="78%"></p>
@@ -83,7 +83,7 @@ Vendor-adjusted prices can be revised later, so a fresh download can nudge these
 - Evaluates a random forest on expanding walk-forward folds with a one-day embargo, so a training label cannot fall inside the next test window
 - Fits the LSTM scaler on pre-holdout rows only, and builds each test sequence from already observed history
 - Compares both models with a persistence baseline and the direction model with a majority-class baseline
-- Replays long/flat signals in Backtrader: orders submitted on the signal bar fill at the next open, commission included, against a buy-and-hold book that pays the same entry fee
+- Turns the random-forest direction into long/flat returns with next-open fills and commission, and compares that curve with a buy-and-hold book that pays the same entry fee
 
 ## Stack
 
@@ -195,6 +195,7 @@ GitHub Actions installs the pinned runtime and dev requirements on Python 3.12, 
 - The published forest is not grid-searched. `--tune` is available and was not used for these numbers.
 - Commission is a flat 0.1% of notional. There is no spread, slippage, or market-impact model.
 - Sentiment is absent unless an API key can actually cover the sample. The constant column is dropped.
+- In `notebooks/backtesting.ipynb`, `MLSignalStrategy.next()` returns while an order is pending without advancing the signal index, so a later bar can be paired with an earlier signal. That is a known bug ([#65](https://github.com/ParBproject/stock-price-predictor/issues/65)). The equity curve reported above does not use that method. It comes from `next_open_long_flat_returns`, which applies one signal to each target bar.
 - A production trading system would still need walk-forward across names, risk limits, and monitoring. This repository stops at a reproducible historical study.
 
 ## Responsible use
