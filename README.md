@@ -20,6 +20,14 @@
   <img src="https://img.shields.io/badge/Backtrader-Strategy%20Validation-2563EB" alt="Backtrader" />
 </p>
 
+## Live demo
+
+Employer-facing walk-forward results, served as a static page:
+
+**[parbproject.github.io/stock-price-predictor](https://parbproject.github.io/stock-price-predictor/)**
+
+The page scores a Random Forest next-day close forecast against a persistence baseline (tomorrow's close equals today's). It does not claim the model beats that baseline. The LSTM is not included.
+
 A time-series machine-learning project for next-day stock-price forecasting that compares **LSTM** and **Random Forest** models, then evaluates whether those predictions remain meaningful in a historical trading workflow.
 
 The repository is designed around a simple principle: **evaluation code is part of the model**. Target timing, scaling, sentiment alignment, holdout construction, trading signals, fees, and equity-curve bookkeeping are all treated as correctness-sensitive logic and covered by regression tests.
@@ -103,7 +111,14 @@ Additional outputs include:
 stock-price-predictor/
 ├── .github/
 │   └── workflows/
-│       └── ci.yml
+│       ├── ci.yml
+│       └── pages.yml
+├── scripts/
+│   └── build_demo.py
+├── site/
+│   ├── index.html
+│   └── data/
+│       └── demo.json
 ├── data/
 │   └── fetch_data.py
 ├── docs/
@@ -150,6 +165,16 @@ pip install -r requirements.txt
 python -m pytest -q
 jupyter notebook
 ```
+
+### Regenerate the live-demo data
+
+From the repository root, with the project dependencies installed:
+
+```bash
+python scripts/build_demo.py
+```
+
+The script downloads adjusted daily bars for AAPL, MSFT, and SPY, runs the leakage-safe Random Forest walk-forward evaluation, and rewrites `site/data/demo.json`. It does not train the LSTM. Commit the JSON. The Pages workflow publishes the `site/` folder and does not re-run the model.
 
 Recommended notebook order:
 

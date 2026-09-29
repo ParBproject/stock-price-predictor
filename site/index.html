@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Forecast study · Stock Price Predictor</title>
+  <meta name="description" content="Walk-forward Random Forest forecasts of the next day's close for AAPL, MSFT, and SPY, plotted against actual prices and a persistence baseline.">
+  <meta name="theme-color" content="#06080b">
+  <link rel="canonical" href="https://parbproject.github.io/stock-price-predictor/">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Forecast study · Stock Price Predictor">
+  <meta property="og:description" content="Walk-forward Random Forest forecasts of the next day's close for AAPL, MSFT, and SPY, scored against a persistence baseline.">
+  <meta property="og:url" content="https://parbproject.github.io/stock-price-predictor/">
+  <meta property="og:image" content="https://parbproject.github.io/stock-price-predictor/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Forecast study · Stock Price Predictor">
+  <meta name="twitter:description" content="Walk-forward Random Forest forecasts of the next day's close for AAPL, MSFT, and SPY, scored against a persistence baseline.">
+  <meta name="twitter:image" content="https://parbproject.github.io/stock-price-predictor/og.png">
+  <link rel="stylesheet" href="vendor/uPlot.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+  <header class="site-header">
+    <div class="wrap header-row">
+      <div>
+        <p class="eyebrow">Par Bahrae · forecasting study</p>
+        <h1>Stock Price Predictor</h1>
+        <p class="lede">Next-day close forecasts from a Random Forest, scored out of sample against a persistence baseline: tomorrow's close equals today's close.</p>
+      </div>
+      <ul class="header-links">
+        <li><a href="https://github.com/ParBproject/stock-price-predictor">Repository</a></li>
+        <li><a href="https://parbproject.github.io">Portfolio</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main id="content">
+    <div class="wrap">
+      <section class="panel" aria-labelledby="ticker-heading">
+        <h2 id="ticker-heading">Ticker</h2>
+        <p class="hint">Each button shows that name's overall model error divided by the persistence error. Above 1× means the forest is worse.</p>
+        <div class="tickers" id="ticker-list" role="tablist" aria-label="Choose a ticker"></div>
+        <div class="stats" id="stats" hidden>
+          <article class="stat-card">
+            <p class="kicker">Random Forest MAE</p>
+            <p class="stat" id="model-mae"></p>
+            <p class="hint">Dollars, all out-of-sample folds</p>
+          </article>
+          <article class="stat-card">
+            <p class="kicker">Persistence MAE</p>
+            <p class="stat" id="baseline-mae"></p>
+            <p class="hint">Tomorrow equals today</p>
+          </article>
+          <article class="stat-card">
+            <p class="kicker">Error ratio</p>
+            <p class="stat" id="mae-ratio"></p>
+            <p class="hint">Forest MAE ÷ persistence MAE</p>
+          </article>
+        </div>
+        <p class="status" id="status" role="status">Loading the generated results…</p>
+      </section>
+
+      <section class="panel" aria-labelledby="forecast-heading">
+        <div class="panel-head">
+          <div>
+            <h2 id="forecast-heading">Forecast versus actual</h2>
+            <p class="hint" id="forecast-note">Out-of-sample next-day closes. Drag across the chart to zoom. Double-click or Reset to show the full window.</p>
+          </div>
+          <div class="chart-actions">
+            <button type="button" id="reset-forecast">Reset zoom</button>
+          </div>
+        </div>
+        <div class="chart-box" id="forecast-chart" role="img" aria-label="Forecast chart"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="metrics-heading">
+        <h2 id="metrics-heading">Model against baseline</h2>
+        <p class="hint">Walk-forward folds. The target on each row is the next day's close. Lower MAE and RMSE are better.</p>
+        <div class="table-wrap">
+          <table>
+            <caption id="table-caption">Per-fold and overall errors for the selected ticker.</caption>
+            <thead>
+              <tr>
+                <th scope="col">Fold</th>
+                <th scope="col">Target window</th>
+                <th scope="col">Forest MAE</th>
+                <th scope="col">Forest RMSE</th>
+                <th scope="col">Baseline MAE</th>
+                <th scope="col">Baseline RMSE</th>
+                <th scope="col">MAE ratio</th>
+              </tr>
+            </thead>
+            <tbody id="metrics-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel" id="backtest-section" aria-labelledby="backtest-heading" hidden>
+        <div class="panel-head">
+          <div>
+            <h2 id="backtest-heading">Backtest versus buy and hold</h2>
+            <p class="hint" id="backtest-note"></p>
+          </div>
+          <div class="chart-actions">
+            <button type="button" id="reset-backtest">Reset zoom</button>
+          </div>
+        </div>
+        <div class="chart-box" id="backtest-chart" role="img" aria-label="Backtest equity chart"></div>
+      </section>
+
+      <section class="panel copy" aria-labelledby="shows-heading">
+        <h2 id="shows-heading">What this shows</h2>
+        <p id="shows-lead"></p>
+        <p>The forest is predicting the price level. A forecast that tracks the last close can look close on a chart and still be worse than guessing that tomorrow equals today. The gap is the number in the ratio column, not a story about the line hugging the price.</p>
+        <p id="shows-fold"></p>
+        <p>The equity curve answers a different question: what a long/flat rule would have done with that same next-day level forecast. Long when the forecast is above today's close, otherwise flat. A position change is filled at the next bar's open, commission is 0.1%, and the book starts at $10,000. Buy and hold buys at that same first tradable open and pays the same entry commission. It is a historical simulation on the last walk-forward fold, with no slippage model. It is not a live track record, and it does not change the error comparison above.</p>
+        <p>The LSTM is not on this page. Training it is too heavy for this static demo, and it would still be aiming at the price level.</p>
+        <p>Planned next step: predict the next-day return instead of the price, and score that forecast against persistence, which for a return is zero.</p>
+        <h3>How these numbers were made</h3>
+        <ul class="plain-list" id="method-list"></ul>
+        <p>Every figure on this page is read from <a href="data/demo.json">data/demo.json</a>, written by <code>scripts/build_demo.py</code>. Regenerate that file from the repository; do not edit it by hand.</p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p id="as-of">Data as of —</p>
+      <p>Educational research, not financial advice. Past prices and a simulated book do not say what a live order would do.</p>
+      <p><a href="https://github.com/ParBproject/stock-price-predictor">github.com/ParBproject/stock-price-predictor</a> · <a href="https://parbproject.github.io">parbproject.github.io</a></p>
+    </div>
+  </footer>
+
+  <noscript>
+    <div class="wrap">
+      <p class="status" data-state="error">This page reads the generated results with JavaScript. The file is data/demo.json.</p>
+    </div>
+  </noscript>
+  <script src="vendor/uPlot.iife.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
