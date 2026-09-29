@@ -1,5 +1,7 @@
 """Utilities for turning next-day forecasts into backtest trading signals."""
 
+from collections.abc import Mapping
+
 import numpy as np
 import pandas as pd
 
@@ -247,6 +249,78 @@ def buy_and_hold_equity_values(
     remaining_cash = initial_cash - entry_cost
     equity[entry_index:] = remaining_cash + shares * closes[entry_index:]
     return equity
+
+
+def signal_for_timestamp(signals, timestamp) -> int:
+    """Return the trading signal that belongs to ``timestamp``.
+
+    ``signals`` is a pandas Series or mapping keyed by the bar timestamps the
+    signals were computed for. ``1`` enters long, ``0`` exits, and ``-1`` takes
+    no new action. Timezone-aware keys are converted to naive UTC so they match
+    the clock a Backtrader pandas feed reports for that same instant.
+
+    The lookup is stateless. A timestamp that has no signal returns ``-1``, so
+    a skipped bar (for example while an order is still pending) cannot shift an
+    older signal onto a later bar.
+    """
+    lookup = _signal_lookup(signals)
+    key = _bar_timestamp(timestamp)
+    return lookup.get(key, -1)
+
+
+def _signal_lookup(signals) -> dict:
+    pairs = _signal_pairs(signals)
+    lookup = {}
+    for raw_timestamp, raw_signal in pairs:
+        key = _bar_timestamp(raw_timestamp)
+        if key in lookup:
+            raise ValueError(f"duplicate signal for timestamp {key.isoformat()}")
+        lookup[key] = _coerce_signal(raw_signal)
+    return lookup
+
+
+def _signal_pairs(signals):
+    if isinstance(signals, pd.Series):
+        if isinstance(signals.index, pd.MultiIndex):
+            raise TypeError("timestamps must be dates or datetimes")
+        return zip(signals.index, signals.to_numpy())
+    if isinstance(signals, Mapping):
+        return signals.items()
+    raise TypeError(
+        "signals must be a pandas Series or a mapping of timestamps to signals"
+    )
+
+
+def _bar_timestamp(value) -> pd.Timestamp:
+    if value is None or isinstance(
+        value, (bool, np.bool_, int, np.integer, float, np.floating)
+    ):
+        raise TypeError("timestamps must be dates or datetimes")
+    try:
+        timestamp = pd.Timestamp(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("timestamps must be valid dates or datetimes") from exc
+    if pd.isna(timestamp):
+        raise ValueError("timestamps must be valid dates or datetimes")
+    if timestamp.tzinfo is not None:
+        timestamp = timestamp.tz_convert("UTC").tz_localize(None)
+    return timestamp
+
+
+def _coerce_signal(value) -> int:
+    if isinstance(value, (bool, np.bool_)):
+        raise TypeError("signal values must be integers, not booleans")
+    if isinstance(value, (int, np.integer)):
+        signal = int(value)
+    elif isinstance(value, (float, np.floating)):
+        if not np.isfinite(value) or not float(value).is_integer():
+            raise ValueError("signal values must be -1, 0, or 1")
+        signal = int(value)
+    else:
+        raise TypeError("signal values must be integers")
+    if signal not in (-1, 0, 1):
+        raise ValueError("signal values must be -1, 0, or 1")
+    return signal
 
 
 def is_terminal_order(order) -> bool:
