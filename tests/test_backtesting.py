@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from src.backtesting import (
+    SignalLookup,
     buy_and_hold_equity_values,
     commission_aware_position_size,
     is_terminal_order,
@@ -456,6 +457,35 @@ def test_signal_for_timestamp_accepts_a_mapping():
 def test_signal_for_timestamp_rejects_invalid_inputs(signals, timestamp, error, match):
     with pytest.raises(error, match=match):
         signal_for_timestamp(signals, timestamp)
+
+
+def test_signal_lookup_reuses_one_map_and_still_allows_a_gap():
+    signals = pd.Series([1, 0], index=pd.to_datetime(["2024-01-02", "2024-01-08"]))
+    lookup = SignalLookup(signals)
+    bars = pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-08"])
+
+    lookup.require_bar_coverage(bars)
+
+    assert lookup.get(bars[0]) == 1
+    assert lookup.get(bars[1]) == -1
+    assert lookup.get("2024-01-08") == 0
+
+
+def test_signal_lookup_raises_when_no_bar_timestamp_matches():
+    lookup = SignalLookup(
+        pd.Series([1, 0], index=pd.to_datetime(["2024-01-02 16:00", "2024-01-03 16:00"]))
+    )
+
+    with pytest.raises(ValueError, match="no bar timestamps matched a signal"):
+        lookup.require_bar_coverage(pd.to_datetime(["2024-01-02", "2024-01-03"]))
+
+
+def test_signal_lookup_warns_when_only_a_few_bars_match():
+    lookup = SignalLookup(pd.Series([1], index=pd.to_datetime(["2024-01-02"])))
+    bars = pd.date_range("2024-01-02", periods=4, freq="B")
+
+    with pytest.warns(UserWarning, match="only 1 of 4 bar timestamps matched a signal"):
+        lookup.require_bar_coverage(bars)
 
 
 def test_portfolio_value_series_aligns_one_value_per_date():

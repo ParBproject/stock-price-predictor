@@ -6,11 +6,12 @@ from pathlib import Path
 
 import backtrader as bt
 import pandas as pd
+import pytest
 
 from src.backtesting import (
+    SignalLookup,
     commission_aware_position_size,
     is_terminal_order,
-    signal_for_timestamp,
 )
 
 
@@ -63,7 +64,7 @@ def _load_strategy():
         "bt": bt,
         "commission_aware_position_size": commission_aware_position_size,
         "is_terminal_order": is_terminal_order,
-        "signal_for_timestamp": signal_for_timestamp,
+        "SignalLookup": SignalLookup,
     }
     exec(_strategy_source(), namespace)
     return namespace["MLSignalStrategy"]
@@ -153,3 +154,11 @@ def test_aligned_signals_trade_on_their_own_bars_when_orders_fill_normally():
     ]
     assert strategy.position.size == 0
     assert len(strategy.portfolio_values) == len(prices)
+
+
+def test_price_and_signal_clock_mismatch_raises_before_trading():
+    prices = _prices(pd.date_range("2024-01-02", periods=4, freq="B"))
+    signals = pd.Series([1, 0, -1, -1], index=prices.index + pd.Timedelta(hours=16))
+
+    with pytest.raises(ValueError, match="no bar timestamps matched a signal"):
+        _run(prices, signals)
