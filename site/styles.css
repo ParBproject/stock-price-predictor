@@ -77,7 +77,7 @@ a:hover { color: #6ee7b7; }
 .skip:focus { top: 12px; }
 
 .wrap {
-  width: min(1120px, calc(100% - 32px));
+  width: min(1120px, calc(100vw - 32px));
   margin: 0 auto;
 }
 
@@ -141,6 +141,8 @@ main { padding: 28px 0 64px; }
   padding: 20px;
   margin-top: 16px;
   box-shadow: var(--shadow);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .panel h2 {
@@ -236,9 +238,34 @@ main { padding: 28px 0 64px; }
 
 .stat-card .hint { margin: 6px 0 0; }
 
-.chart-box { width: 100%; min-height: 280px; }
+.chart-box {
+  width: 100%;
+  max-width: 100%;
+  min-height: 280px;
+  overflow: hidden;
+}
 
-.uplot { color: var(--text); }
+.chart-box .uplot {
+  width: 100% !important;
+  max-width: 100%;
+  color: var(--text);
+}
+
+.chart-box .u-legend,
+.chart-box .u-legend tbody {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.chart-box .u-legend tr {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+}
 
 .u-legend { color: var(--text); font-size: 13px; }
 
@@ -271,14 +298,17 @@ main { padding: 28px 0 64px; }
 }
 
 .table-wrap {
+  display: block;
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
   margin-top: 8px;
 }
 
-table {
+.table-wrap table {
   width: 100%;
-  border-collapse: collapse;
   min-width: 640px;
+  border-collapse: collapse;
   font-variant-numeric: tabular-nums;
 }
 
@@ -290,17 +320,20 @@ caption {
   padding-top: 10px;
 }
 
-th, td {
+.table-wrap th,
+.table-wrap td {
   text-align: right;
   padding: 10px 12px;
   border-bottom: 1px solid var(--line);
   font-size: 0.92rem;
 }
 
-th:first-child, td:first-child,
-th:nth-child(2), td:nth-child(2) { text-align: left; }
+.table-wrap th:first-child,
+.table-wrap td:first-child,
+.table-wrap th:nth-child(2),
+.table-wrap td:nth-child(2) { text-align: left; }
 
-th {
+.table-wrap th {
   color: var(--muted);
   font-size: 0.75rem;
   font-weight: 600;
@@ -308,7 +341,7 @@ th {
   text-transform: uppercase;
 }
 
-tbody tr:last-child td { border-bottom: 0; }
+.table-wrap tbody tr:last-child td { border-bottom: 0; }
 
 tr.overall td { font-weight: 600; }
 
@@ -360,7 +393,7 @@ tr.overall td { font-weight: 600; }
 }
 
 @media (max-width: 720px) {
-  .wrap { width: min(1120px, calc(100% - 24px)); }
+  .wrap { width: min(1120px, calc(100vw - 24px)); }
   .header-row { flex-direction: column; align-items: flex-start; padding-top: 22px; }
   .stats { grid-template-columns: 1fr; }
   .panel { padding: 16px; }

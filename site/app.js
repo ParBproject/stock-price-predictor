@@ -58,7 +58,7 @@
   }
 
   function chartWidth(node) {
-    return Math.max(280, node.clientWidth);
+    return Math.max(260, Math.floor(node.getBoundingClientRect().width));
   }
 
   function chartHeight() {
