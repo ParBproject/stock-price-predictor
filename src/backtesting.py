@@ -389,6 +389,127 @@ def is_terminal_order(order) -> bool:
     return order.status in terminal_statuses
 
 
+def assemble_signal_frame(
+    df: pd.DataFrame,
+    feature_index: pd.Index,
+    target_index: pd.Index,
+    predictions: np.ndarray,
+    signals: np.ndarray,
+) -> pd.DataFrame:
+    """Attach next-day forecasts to the bars a backtest is allowed to see.
+
+    The frame starts on the first feature date and ends on the last target
+    date so an order placed on the final feature bar can fill on the next bar.
+    That terminal bar has no new signal.
+    """
+    predictions = np.asarray(predictions, dtype=float)
+    signals = np.asarray(signals)
+    if len(feature_index) == 0:
+        raise ValueError("feature_index must not be empty")
+    if len(feature_index) != len(predictions) or len(feature_index) != len(signals):
+        raise ValueError("predictions and signals must align with feature_index")
+    if len(target_index) != len(feature_index):
+        raise ValueError("target_index must align with feature_index")
+
+    start = feature_index[0]
+    end = target_index[-1]
+    frame = df.loc[start:end].copy()
+    if frame.empty:
+        raise ValueError("backtest window is empty")
+    missing = pd.Index(feature_index).difference(frame.index)
+    if len(missing):
+        raise ValueError("feature dates are missing from the backtest window")
+
+    frame["Pred_Close"] = np.nan
+    frame["Signal"] = -1
+    frame.loc[feature_index, "Pred_Close"] = predictions
+    frame.loc[feature_index, "Signal"] = signals
+    return frame
+
+
+def equity_period_returns(equity: pd.Series | np.ndarray) -> np.ndarray:
+    """Return simple period returns between successive equity marks."""
+    values = np.asarray(equity, dtype=float)
+    if values.ndim != 1 or len(values) < 2:
+        raise ValueError("equity must contain at least two marks")
+    if not np.isfinite(values).all() or (values <= 0).any():
+        raise ValueError("equity marks must be finite and positive")
+    return values[1:] / values[:-1] - 1.0
+
+
+def run_long_flat_backtest(
+    frame: pd.DataFrame,
+    initial_cash: float = 10_000.0,
+    commission_rate: float = 0.001,
+) -> pd.Series:
+    """Run the long/flat next-open strategy and return one value per bar.
+
+    Backtrader is imported inside the function so the rest of this module can
+    be tested without that dependency. Market orders submitted from ``next``
+    fill on the following bar's open, matching the notebook strategy.
+    """
+    import backtrader as bt
+
+    required = ["Open", "High", "Low", "Close", "Volume", "Signal"]
+    missing = [column for column in required if column not in frame.columns]
+    if missing:
+        raise KeyError(f"Backtest frame is missing columns: {missing}")
+    if frame.empty:
+        raise ValueError("Backtest frame must not be empty")
+
+    class MLSignalStrategy(bt.Strategy):
+        """Buy or exit from an externally computed long/flat signal."""
+
+        params = dict(signals=None, printlog=False, commission_rate=0.0)
+
+        def __init__(self):
+            self.idx = 0
+            self.signals = self.params.signals
+            self.order = None
+            self.portfolio_values = []
+
+        def next(self):
+            self.portfolio_values.append(self.broker.getvalue())
+            if self.order:
+                return
+
+            signal = self.signals[self.idx] if self.idx < len(self.signals) else -1
+            self.idx += 1
+
+            if signal == 1 and not self.position:
+                cash = self.broker.getcash()
+                size = commission_aware_position_size(
+                    cash, self.data.close[0], self.params.commission_rate
+                )
+                if size > 0:
+                    self.order = self.buy(size=size)
+            elif signal == 0 and self.position:
+                self.order = self.sell(size=self.position.size)
+
+        def notify_order(self, order):
+            if is_terminal_order(order):
+                self.order = None
+
+    prices = frame[["Open", "High", "Low", "Close", "Volume"]].copy()
+    prices.index = pd.to_datetime(prices.index)
+    if getattr(prices.index, "tz", None) is not None:
+        prices.index = prices.index.tz_localize(None)
+    prices.columns = ["open", "high", "low", "close", "volume"]
+
+    cerebro = bt.Cerebro()
+    cerebro.adddata(bt.feeds.PandasData(dataname=prices))
+    cerebro.addstrategy(
+        MLSignalStrategy,
+        signals=frame["Signal"].to_numpy(dtype=int),
+        commission_rate=commission_rate,
+    )
+    cerebro.broker.setcash(float(initial_cash))
+    cerebro.broker.setcommission(commission=float(commission_rate))
+    cerebro.broker.set_coc(False)
+    strategy = cerebro.run()[0]
+    return portfolio_value_series(strategy.portfolio_values, frame.index)
+
+
 def portfolio_value_series(
     portfolio_values,
     dates,

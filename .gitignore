@@ -24,6 +24,17 @@ env/
 .streamlit/secrets.toml
 *.log
 
+# Downloaded datasets, the SQLite feature cache, and fitted model binaries.
+# Charts and results/metrics.json are checked in; regenerate them with
+# `python -m src.pipeline`.
+data/*.csv
+data/*.sqlite
+data/*.db
+results/*.keras
+results/*.pkl
+results/*.h5
+results/*.joblib
+
 # Editors and operating systems
 .vscode/
 .idea/

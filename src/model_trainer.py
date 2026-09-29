@@ -10,14 +10,10 @@ A thin classification wrapper is also provided (directional: up/down).
 """
 
 import os
+from typing import Any
+
 import numpy as np
 import joblib
-
-# ── Keras / TensorFlow ─────────────────────────────────────────────────────────
-from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import LSTM, Dense, Dropout, BatchNormalization
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
-from tensorflow.keras.optimizers import Adam
 
 # ── scikit-learn ───────────────────────────────────────────────────────────────
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
@@ -29,6 +25,32 @@ RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
 
+def _load_keras() -> dict[str, Any]:
+    """Import Keras symbols on demand so tree models do not require TensorFlow."""
+    os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
+    from tensorflow.keras.callbacks import (
+        EarlyStopping,
+        ModelCheckpoint,
+        ReduceLROnPlateau,
+    )
+    from tensorflow.keras.layers import LSTM, BatchNormalization, Dense, Dropout
+    from tensorflow.keras.models import Sequential, load_model
+    from tensorflow.keras.optimizers import Adam
+
+    return {
+        "Sequential": Sequential,
+        "load_model": load_model,
+        "LSTM": LSTM,
+        "Dense": Dense,
+        "Dropout": Dropout,
+        "BatchNormalization": BatchNormalization,
+        "EarlyStopping": EarlyStopping,
+        "ReduceLROnPlateau": ReduceLROnPlateau,
+        "ModelCheckpoint": ModelCheckpoint,
+        "Adam": Adam,
+    }
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # LSTM
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -37,7 +59,7 @@ def build_lstm(seq_len: int,
                n_features: int,
                units: int = 64,
                dropout: float = 0.2,
-               learning_rate: float = 1e-3) -> Sequential:
+               learning_rate: float = 1e-3) -> Any:
     """
     Stacked LSTM with Batch Normalisation and Dropout to reduce overfitting.
 
@@ -47,22 +69,23 @@ def build_lstm(seq_len: int,
     LSTM(units // 2)                   → BN → Dropout
     Dense(32, relu)                    → Dense(1, linear)
     """
-    model = Sequential([
-        LSTM(units, return_sequences=True,
-             input_shape=(seq_len, n_features)),
-        BatchNormalization(),
-        Dropout(dropout),
+    keras = _load_keras()
+    model = keras["Sequential"]([
+        keras["LSTM"](units, return_sequences=True,
+                      input_shape=(seq_len, n_features)),
+        keras["BatchNormalization"](),
+        keras["Dropout"](dropout),
 
-        LSTM(units // 2, return_sequences=False),
-        BatchNormalization(),
-        Dropout(dropout),
+        keras["LSTM"](units // 2, return_sequences=False),
+        keras["BatchNormalization"](),
+        keras["Dropout"](dropout),
 
-        Dense(32, activation="relu"),
-        Dense(1),              # linear output → regression
+        keras["Dense"](32, activation="relu"),
+        keras["Dense"](1),              # linear output → regression
     ])
 
     model.compile(
-        optimizer=Adam(learning_rate=learning_rate),
+        optimizer=keras["Adam"](learning_rate=learning_rate),
         loss="mean_squared_error",
         metrics=["mae"],
     )
@@ -86,18 +109,19 @@ def train_lstm(X_train: np.ndarray,
     """
     seq_len    = X_train.shape[1]
     n_features = X_train.shape[2]
+    keras = _load_keras()
 
     model = build_lstm(seq_len, n_features, units, dropout, learning_rate)
     model.summary()
 
     ckpt_path = os.path.join(RESULTS_DIR, "lstm_best.keras")
     callbacks = [
-        EarlyStopping(monitor="val_loss", patience=8,
-                      restore_best_weights=True, verbose=1),
-        ReduceLROnPlateau(monitor="val_loss", factor=0.5,
-                          patience=4, min_lr=1e-6, verbose=1),
-        ModelCheckpoint(ckpt_path, monitor="val_loss",
-                        save_best_only=True, verbose=0),
+        keras["EarlyStopping"](monitor="val_loss", patience=8,
+                               restore_best_weights=True, verbose=1),
+        keras["ReduceLROnPlateau"](monitor="val_loss", factor=0.5,
+                                   patience=4, min_lr=1e-6, verbose=1),
+        keras["ModelCheckpoint"](ckpt_path, monitor="val_loss",
+                                 save_best_only=True, verbose=0),
     ]
 
     history = model.fit(
@@ -116,8 +140,8 @@ def train_lstm(X_train: np.ndarray,
     return model, history
 
 
-def load_lstm(path: str) -> Sequential:
-    return load_model(path)
+def load_lstm(path: str) -> Any:
+    return _load_keras()["load_model"](path)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -129,7 +153,10 @@ def train_random_forest_regressor(X_train: np.ndarray,
                                   tune: bool = True,
                                   n_splits: int = 5,
                                   save_path: str | None = None,
-                                  forecast_horizon: int = 1
+                                  forecast_horizon: int = 1,
+                                  n_estimators: int = 200,
+                                  max_depth: int | None = 20,
+                                  n_jobs: int = -1,
                                   ) -> RandomForestRegressor:
     """
     Trains a RandomForestRegressor.
@@ -148,7 +175,7 @@ def train_random_forest_regressor(X_train: np.ndarray,
             n_splits=n_splits,
             forecast_horizon=forecast_horizon,
         )
-        rf   = RandomForestRegressor(random_state=42, n_jobs=-1)
+        rf   = RandomForestRegressor(random_state=42, n_jobs=n_jobs)
         gs   = GridSearchCV(rf, param_grid, cv=tscv,
                             scoring="neg_mean_squared_error",
                             n_jobs=-1, verbose=1)
@@ -156,8 +183,8 @@ def train_random_forest_regressor(X_train: np.ndarray,
         model = gs.best_estimator_
         print(f"[RF] Best params: {gs.best_params_}")
     else:
-        model = RandomForestRegressor(n_estimators=200, max_depth=20,
-                                      random_state=42, n_jobs=-1)
+        model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth,
+                                      random_state=42, n_jobs=n_jobs)
         model.fit(X_train, y_train)
 
     if save_path:
@@ -171,7 +198,10 @@ def train_random_forest_classifier(X_train: np.ndarray,
                                    y_train: np.ndarray,
                                    tune: bool = False,
                                    save_path: str | None = None,
-                                   forecast_horizon: int = 1
+                                   forecast_horizon: int = 1,
+                                   n_estimators: int = 200,
+                                   max_depth: int | None = 20,
+                                   n_jobs: int = -1,
                                    ) -> RandomForestClassifier:
     """
     Binary classifier predicting price direction: 1 = up, 0 = down.
@@ -186,15 +216,15 @@ def train_random_forest_classifier(X_train: np.ndarray,
             n_splits=5,
             forecast_horizon=forecast_horizon,
         )
-        rf    = RandomForestClassifier(random_state=42, n_jobs=-1)
+        rf    = RandomForestClassifier(random_state=42, n_jobs=n_jobs)
         gs    = GridSearchCV(rf, param_grid, cv=tscv,
                              scoring="f1", n_jobs=-1, verbose=1)
         gs.fit(X_train, y_train)
         model = gs.best_estimator_
         print(f"[RF-Clf] Best params: {gs.best_params_}")
     else:
-        model = RandomForestClassifier(n_estimators=200, max_depth=20,
-                                       random_state=42, n_jobs=-1)
+        model = RandomForestClassifier(n_estimators=n_estimators, max_depth=max_depth,
+                                       random_state=42, n_jobs=n_jobs)
         model.fit(X_train, y_train)
 
     if save_path:

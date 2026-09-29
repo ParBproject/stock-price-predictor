@@ -1,23 +1,14 @@
-# Stock Price Predictor — LSTM, Random Forest & Backtesting
+# Stock Price Predictor
 
-## For an AI data analyst application
+A leakage-aware study of **next-day Apple close forecasts**. A walk-forward random forest and a holdout LSTM are scored against a no-change baseline, then a long/flat rule is compared with buy and hold after commission.
 
-**Frame this as forecasting hygiene, not a trading product.** The thing to defend is leakage control: next-day targets, train-only scaling, no future news. The charts below are the analysis surface. A careless same-day target would make the fit look brilliant and be wrong.
+**Not financial advice.** This is research code. Nothing here is a recommendation to buy or sell any security. Simulated history is not future performance.
 
-<p align="center"><img src="results/eda_dashboard.png" alt="Exploratory analysis dashboard" width="100%"></p>
-<p align="center"><img src="results/lstm_predictions.png" alt="LSTM predictions versus actual prices" width="49%"> <img src="results/rf_feature_importance.png" alt="Random forest feature importance" width="49%"></p>
-<p align="center"><img src="docs/visuals/correctness_safeguards.svg" alt="Leakage and backtest safeguards" width="100%"></p>
-
-<p align="center">
-  <img src="docs/visuals/project_overview.svg" alt="Stock Price Predictor project overview" width="100%" />
-</p>
-
-<p align="center">
+<p>
   <a href="https://github.com/ParBproject/stock-price-predictor/actions/workflows/ci.yml"><img src="https://github.com/ParBproject/stock-price-predictor/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+" />
-  <img src="https://img.shields.io/badge/TensorFlow-LSTM-FF6F00?logo=tensorflow&logoColor=white" alt="TensorFlow LSTM" />
-  <img src="https://img.shields.io/badge/scikit--learn-Random%20Forest-F7931E?logo=scikitlearn&logoColor=white" alt="scikit-learn Random Forest" />
-  <img src="https://img.shields.io/badge/Backtrader-Strategy%20Validation-2563EB" alt="Backtrader" />
+  <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 3.11+" />
+  <img src="https://img.shields.io/badge/scikit--learn-Random%20Forest-F7931E?logo=scikitlearn&logoColor=white" alt="scikit-learn" />
+  <img src="https://img.shields.io/badge/TensorFlow-LSTM-FF6F00?logo=tensorflow&logoColor=white" alt="TensorFlow" />
 </p>
 
 ## Live demo
@@ -28,131 +19,100 @@ Employer-facing walk-forward results, served as a static page:
 
 The page scores a Random Forest next-day close forecast against a persistence baseline (tomorrow's close equals today's). It does not claim the model beats that baseline. The LSTM is not included.
 
-A time-series machine-learning project for next-day stock-price forecasting that compares **LSTM** and **Random Forest** models, then evaluates whether those predictions remain meaningful in a historical trading workflow.
+## The result that matters
 
-The repository is designed around a simple principle: **evaluation code is part of the model**. Target timing, scaling, sentiment alignment, holdout construction, trading signals, fees, and equity-curve bookkeeping are all treated as correctness-sensitive logic and covered by regression tests.
+On adjusted AAPL prices from 2015-01-01 through 2024-12-31, **predicting tomorrow's close with today's close beats both models on price error**. The trading rule also finishes behind buy and hold. Figures below are rounded from [`results/metrics.json`](results/metrics.json), produced by:
 
-## What This Project Demonstrates
-
-- Historical OHLCV ingestion with `yfinance`
-- Technical-indicator and lag feature engineering
-- Optional VADER news-sentiment features
-- LSTM sequence modelling with TensorFlow/Keras
-- Random Forest regression and directional classification
-- Chronological train/test separation
-- Train-only feature scaling
-- Explicit next-day target alignment
-- Leakage-aware LSTM holdout sequencing
-- Backtrader strategy validation
-- Commission-aware position sizing
-- Regression tests and GitHub Actions CI
-
-## End-to-End Workflow
-
-<p align="center">
-  <img src="docs/visuals/ml_pipeline.svg" alt="End-to-end machine learning workflow" width="100%" />
-</p>
-
-The two model paths use different representations but the same time-series discipline:
-
-| Stage | Random Forest | LSTM |
-|---|---|---|
-| Input | Engineered tabular features | Rolling multivariate sequences |
-| Forecast target | `Close[t+1]` from features at `t` | Next observed close from prior sequence context |
-| Split | Chronological | Chronological |
-| Scaling | Not required by model | `MinMaxScaler` fit on training data only |
-| Holdout handling | Shift target before 80/20 split | Test windows prepend trailing training history |
-| Evaluation | Regression + direction classification | Regression + strategy-oriented review |
-| Strategy validation | Backtrader next-day signals | Finance metrics from known-prior-close comparisons |
-
-## Correctness Safeguards
-
-<p align="center">
-  <img src="docs/visuals/correctness_safeguards.svg" alt="Correctness safeguards in the forecasting and backtesting pipeline" width="100%" />
-</p>
-
-Several subtle time-series and backtesting bugs were explicitly removed from the project:
-
-- **Same-day target leakage:** Random Forest features at date `t` now predict `Close[t+1]`, instead of training against the same day's close-derived target.
-- **Future-news leakage:** sentiment alignment only forward-fills information already observed; dates before the first headline remain neutral.
-- **Fabricated sentiment:** missing news data returns neutral `0.0` sentiment instead of a synthetic random walk.
-- **Dropped LSTM holdout predictions:** the first test sequence now uses the final training-history window, so the initial test period is not discarded.
-- **Stale backtest signals:** next-day forecasts are compared against the current known close, not the previous day's close.
-- **Commission oversizing:** all-in share sizing reserves cash for trading fees and uses available cash rather than total portfolio value.
-- **Equity-curve mismatch:** the backtest records exactly one portfolio value per bar and validates value/date alignment before plotting.
-
-These cases are covered by unit tests under `tests/` and run automatically in GitHub Actions.
-
-## Model & Analysis Visuals
-
-The repository also contains generated analysis outputs from the modelling notebooks.
-
-<table>
-  <tr>
-    <td width="50%" align="center"><strong>Exploratory Analysis</strong><br/><img src="results/eda_dashboard.png" alt="Exploratory data analysis dashboard" width="100%" /></td>
-    <td width="50%" align="center"><strong>LSTM Predictions</strong><br/><img src="results/lstm_predictions.png" alt="LSTM predictions versus actual prices" width="100%" /></td>
-  </tr>
-  <tr>
-    <td width="50%" align="center"><strong>Random Forest Feature Importance</strong><br/><img src="results/rf_feature_importance.png" alt="Random Forest feature importance" width="100%" /></td>
-    <td width="50%" align="center"><strong>Backtest Equity Curve</strong><br/><img src="results/equity_curve.png" alt="Historical backtest equity curve" width="100%" /></td>
-  </tr>
-</table>
-
-Additional outputs include:
-
-- `results/lstm_loss_curves.png`
-- `results/rf_confusion_matrix.png`
-
-> The notebook outputs are research snapshots. Re-run the notebooks after code changes to regenerate metrics and plots from the latest pipeline.
-
-## Repository Structure
-
-```text
-stock-price-predictor/
-├── .github/
-│   └── workflows/
-│       ├── ci.yml
-│       └── pages.yml
-├── scripts/
-│   └── build_demo.py
-├── site/
-│   ├── index.html
-│   └── data/
-│       └── demo.json
-├── data/
-│   └── fetch_data.py
-├── docs/
-│   └── visuals/
-│       ├── project_overview.svg
-│       ├── ml_pipeline.svg
-│       └── correctness_safeguards.svg
-├── notebooks/
-│   ├── eda.ipynb
-│   ├── lstm_model.ipynb
-│   ├── random_forest_model.ipynb
-│   └── backtesting.ipynb
-├── results/
-│   ├── eda_dashboard.png
-│   ├── lstm_predictions.png
-│   ├── lstm_loss_curves.png
-│   ├── rf_feature_importance.png
-│   ├── rf_confusion_matrix.png
-│   └── equity_curve.png
-├── src/
-│   ├── backtesting.py
-│   ├── data_loader.py
-│   ├── evaluator.py
-│   ├── model_trainer.py
-│   └── sentiment_analyzer.py
-├── tests/
-│   ├── test_backtesting.py
-│   ├── test_data_loader.py
-│   └── test_sentiment_analyzer.py
-├── requirements.txt
-└── README.md
+```bash
+python -m src.pipeline --ticker AAPL --start 2015-01-01 --end 2024-12-31 --refresh --lstm --epochs 15
 ```
 
-## Reproduce the Project
+Walk-forward means across four expanding folds (308 test days each, one-row embargo):
+
+| | MAE (USD) | RMSE (USD) | Directional accuracy |
+|---|---:|---:|---:|
+| Persistence (tomorrow = today) | 1.98 | 2.67 | — |
+| Random forest | 16.84 | 22.00 | 45.8% |
+
+Skill score `1 - MAE_model / MAE_persistence` averages **-7.58**. It is negative in every fold.
+
+| Fold | Test window | RF MAE | Persistence MAE | Skill |
+|---|---|---:|---:|---:|
+| 1 | 2020-02-07 – 2021-04-28 | 28.69 | 1.89 | -14.17 |
+| 2 | 2021-04-29 – 2022-07-19 | 15.93 | 2.06 | -6.75 |
+| 3 | 2022-07-20 – 2023-10-09 | 4.63 | 2.00 | -1.31 |
+| 4 | 2023-10-10 – 2024-12-30 | 18.12 | 1.99 | -8.10 |
+
+Final holdout only (fold 4, 308 days). The LSTM is trained on history before this window for 15 epochs; early stopping restored the weights from epoch 14.
+
+| | MAE | RMSE | MAPE | Up/down accuracy |
+|---|---:|---:|---:|---:|
+| Persistence | $1.99 | $2.72 | 0.99% | — |
+| Random forest | $18.12 | $26.29 | 8.06% | 43.2% |
+| LSTM | $28.95 | $33.20 | 13.68% | 44.2% |
+
+A separate direction classifier on the same holdout is **42.9% accurate**. The training-set majority class is "up" and scores **55.8%** by always predicting up. Precision on up days is 47.4%, recall is 20.9%, F1 is 0.29.
+
+Backtest of the random-forest long/flat rule on that holdout, starting from $10,000 with 0.1% commission and next-open fills:
+
+| | Final value | Total return | Sharpe | Max drawdown |
+|---|---:|---:|---:|---:|
+| Model strategy | $10,342.92 | 3.43% | -0.062 | -10.19% |
+| Buy and hold | $14,171.10 | 41.71% | 1.265 | -16.38% |
+
+<p align="center"><img src="results/baseline_comparison.png" alt="Final holdout MAE and RMSE for persistence, random forest, and LSTM" width="78%"></p>
+<p align="center"><img src="results/equity_curve.png" alt="Random forest strategy equity versus buy and hold" width="88%"></p>
+
+Price-level error looks small for the no-change forecast because a close is highly persistent. The same plots make the model failure obvious: the forest and the LSTM do not follow the 2024 rally, and the equity curve stays near cash while buy and hold compounds.
+
+<p align="center"><img src="results/rf_predictions.png" alt="Random forest holdout predictions versus actual AAPL closes" width="49%"> <img src="results/lstm_predictions.png" alt="LSTM holdout predictions versus actual AAPL closes" width="49%"></p>
+
+Lagged prices, moving averages, and on-balance volume dominate the forest. Those features sit inside the training price range, and a tree ensemble cannot extrapolate a market that keeps making new highs. The LSTM loss falls in scaled units (best epoch 14) while the dollar error on the holdout remains far above the persistence line. Scaled loss and tradable skill are different questions.
+
+<p align="center"><img src="results/rf_feature_importance.png" alt="Random forest feature importance on the final fold" width="46%"> <img src="results/lstm_loss_curves.png" alt="LSTM training and validation loss" width="50%"></p>
+
+Vendor-adjusted prices can be revised later, so a fresh download can nudge these figures. The JSON file is the record of this run. `python -m src.pipeline --demo` is an offline smoke test on a seeded random walk. Those numbers are not market results.
+
+## What it does
+
+- Downloads split- and dividend-adjusted OHLCV with `yfinance` (`auto_adjust=True`)
+- Builds technical indicators, lags, and an optional VADER sentiment column
+- Stores the feature frame in SQLite and reloads a date range with parameterized SQL
+- Drops constant columns. With no `NEWS_API_KEY`, sentiment is 0.0 and is removed rather than treated as a signal
+- Aligns each feature row at date *t* with `Close[t+1]`
+- Evaluates a random forest on expanding walk-forward folds with a one-day embargo, so a training label cannot fall inside the next test window
+- Fits the LSTM scaler on pre-holdout rows only, and builds each test sequence from already observed history
+- Compares both models with a persistence baseline and the direction model with a majority-class baseline
+- Replays long/flat signals in Backtrader: orders submitted on the signal bar fill at the next open, commission included, against a buy-and-hold book that pays the same entry fee
+
+## Stack
+
+Python 3.11+, pandas, NumPy, scikit-learn, TensorFlow/Keras, SQLite, Backtrader, yfinance, statsmodels, matplotlib, pytest, Ruff, GitHub Actions.
+
+## Pipeline
+
+<p align="center"><img src="docs/visuals/ml_pipeline.svg" alt="Data, features, models, and evaluation flow" width="100%"></p>
+
+| Stage | Random forest | LSTM |
+|---|---|---|
+| Input | Tabular indicators and lags at *t* | 60-day windows ending at *t* |
+| Target | `Close[t+1]` | Next close after the window |
+| Split | 4 expanding folds, gap of 1 row | Final fold only, validation carved from earlier history |
+| Scaling | None | `MinMaxScaler` fit on the training block only |
+| Published run | 200 trees, depth 20, `n_jobs=1`, no grid search | 15 epochs, early stopping, batch 32 |
+
+<p align="center"><img src="docs/visuals/correctness_safeguards.svg" alt="Leakage and backtest safeguards" width="100%"></p>
+
+The safeguards covered by tests:
+
+- Features at *t* predict `Close[t+1]`, not the same day's close
+- News after the NYSE close, including early-close sessions, is dated to the next session. Missing headlines stay at neutral 0.0
+- LSTM holdout windows prepend the trailing training history instead of dropping the first test dates
+- Random-forest tuning, when enabled with `--tune`, uses `TimeSeriesSplit` with a gap equal to the forecast horizon
+- Saved scikit-learn models must carry the same feature names in the same order before a notebook backtest will load them
+- Position size reserves cash for commission. The equity curve stores one portfolio value per bar
+
+## Run it
 
 ```bash
 git clone https://github.com/ParBproject/stock-price-predictor.git
@@ -160,11 +120,25 @@ cd stock-price-predictor
 
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-lstm.txt -r requirements-dev.txt
 
 python -m pytest -q
-jupyter notebook
+python -m src.pipeline --ticker AAPL --start 2015-01-01 --end 2024-12-31 --refresh --lstm --epochs 15
 ```
+
+The forecast command needs a network connection for Yahoo Finance data. It reprints the metrics and writes:
+
+- `results/metrics.json`
+- `results/baseline_comparison.png`, `results/equity_curve.png`
+- `results/rf_predictions.png`, `results/rf_feature_importance.png`, `results/rf_confusion_matrix.png`
+- `results/lstm_predictions.png`, `results/lstm_loss_curves.png`
+- `results/eda_dashboard.png`
+- `data/market.sqlite` (local cache, not committed)
+
+`--demo` skips the download and runs the same code on synthetic prices. `--tune` grid-searches the forest inside every fold and is much slower. Omit `--lstm` to skip TensorFlow.
+
+Notebooks are the interactive version of the same ideas. Install them with `pip install -r requirements-notebooks.txt`, then open `notebooks/eda.ipynb`, `notebooks/random_forest_model.ipynb`, `notebooks/lstm_model.ipynb`, and `notebooks/backtesting.ipynb`.
+
 
 ### Regenerate the live-demo data
 
@@ -176,37 +150,53 @@ python scripts/build_demo.py
 
 The script downloads adjusted daily bars for AAPL, MSFT, and SPY, runs the leakage-safe Random Forest walk-forward evaluation, and rewrites `site/data/demo.json`. It does not train the LSTM. Commit the JSON. The Pages workflow publishes the `site/` folder and does not re-run the model.
 
-Recommended notebook order:
+Optional news sentiment: copy `.env.example` to `.env` and set `NEWS_API_KEY`. The free NewsAPI tier does not backfill 2015–2024, so the published run does not use headlines.
 
-1. `notebooks/eda.ipynb`
-2. `notebooks/lstm_model.ipynb`
-3. `notebooks/random_forest_model.ipynb`
-4. `notebooks/backtesting.ipynb`
-
-## Testing & CI
-
-The GitHub Actions workflow performs:
+## Layout
 
 ```text
-Ruff critical-error checks
-        ↓
-Python source compilation
-        ↓
-Pytest regression suite
+stock-price-predictor/
+├── .github/workflows/
+│   ├── ci.yml
+│   └── pages.yml
+├── scripts/build_demo.py
+├── site/
+├── data/fetch_data.py
+├── docs/visuals/
+├── notebooks/
+├── results/                  # charts and metrics.json from the command above
+├── src/
+│   ├── pipeline.py           # python -m src.pipeline
+│   ├── baselines.py
+│   ├── feature_store.py      # SQLite cache and SQL reloads
+│   ├── data_loader.py
+│   ├── validation.py
+│   ├── scaling.py
+│   ├── model_trainer.py
+│   ├── model_artifacts.py
+│   ├── sentiment_analyzer.py
+│   ├── backtesting.py
+│   └── evaluator.py
+├── tests/
+├── requirements.txt
+├── requirements-lstm.txt
+├── requirements-notebooks.txt
+└── requirements-dev.txt
 ```
 
-The tests focus on behavior that can silently invalidate time-series results, including future-target alignment, invalid horizons, LSTM holdout windows, sentiment timing, signal semantics, fee-aware sizing, and portfolio/date alignment.
+## Tests and CI
 
-## Skills Demonstrated
+GitHub Actions installs the pinned runtime and dev requirements on Python 3.11, runs Ruff on critical syntax errors, compiles the sources, and runs pytest. The suite covers target alignment, the walk-forward embargo, neutral sentiment, fee-aware sizing, equity/date alignment, the SQLite round trip, and an offline demo of the pipeline. It does not download a new market history or retrain the published models on every push.
 
-**Machine learning:** TensorFlow, Keras, scikit-learn, Random Forest, LSTM  
-**Data:** pandas, NumPy, yfinance, technical indicators, time-series feature engineering  
-**Evaluation:** leakage prevention, chronological validation, regression/classification metrics, backtesting  
-**Engineering:** modular Python, regression testing, CI/CD, defensive validation, Git/GitHub workflows  
-**Finance:** next-day signals, commissions, Sharpe ratio, drawdown, equity-curve analysis
+## Limitations and next steps
 
-## Responsible Use
+- One ticker and one decade. A rising price level punishes models that cannot extrapolate; that is visible here and would need a return or residual target to retest.
+- The LSTM is scored on the final fold only. The forest is the walk-forward result.
+- The published forest is not grid-searched. `--tune` is available and was not used for these numbers.
+- Commission is a flat 0.1% of notional. There is no spread, slippage, or market-impact model.
+- Sentiment is absent unless an API key can actually cover the sample. The constant column is dropped.
+- A production trading system would still need walk-forward across names, risk limits, and monitoring. This repository stops at a reproducible historical study.
 
-This repository is an educational and research project, **not financial advice**. Market prediction is inherently uncertain, and historical or simulated performance does not guarantee future results.
+## Responsible use
 
-A production trading system would require additional work such as walk-forward validation, realistic slippage modelling, market-impact assumptions, model/data monitoring, risk limits, and independent validation.
+Educational and research use only. **Not financial advice.** Historical or simulated performance does not predict future results.

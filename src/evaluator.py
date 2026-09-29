@@ -26,7 +26,8 @@ os.makedirs(RESULTS_DIR, exist_ok=True)
 
 def regression_metrics(y_true: np.ndarray,
                        y_pred: np.ndarray,
-                       label:  str = "Model") -> dict:
+                       label:  str = "Model",
+                       verbose: bool = True) -> dict:
     """Returns MAE, MSE, RMSE and MAPE using positional sample alignment."""
     y_true = np.asarray(y_true, dtype=float)
     y_pred = np.asarray(y_pred, dtype=float)
@@ -46,9 +47,10 @@ def regression_metrics(y_true: np.ndarray,
     mape = np.mean(np.abs((y_true - y_pred) / (np.abs(y_true) + 1e-10))) * 100
 
     metrics = {"MAE": mae, "MSE": mse, "RMSE": rmse, "MAPE%": mape}
-    print(f"\n── {label} Regression Metrics ──────────────────")
-    for k, v in metrics.items():
-        print(f"  {k:8s}: {v:.4f}")
+    if verbose:
+        print(f"\n── {label} Regression Metrics ──────────────────")
+        for k, v in metrics.items():
+            print(f"  {k:8s}: {v:.4f}")
     return metrics
 
 
@@ -58,7 +60,8 @@ def regression_metrics(y_true: np.ndarray,
 
 def classification_metrics(y_true: np.ndarray,
                             y_pred: np.ndarray,
-                            label:  str = "Model") -> dict:
+                            label:  str = "Model",
+                            verbose: bool = True) -> dict:
     """Returns accuracy, precision, recall, F1 for binary classification."""
     acc  = accuracy_score(y_true, y_pred)
     prec = precision_score(y_true, y_pred, zero_division=0)
@@ -66,14 +69,15 @@ def classification_metrics(y_true: np.ndarray,
     f1   = f1_score(y_true, y_pred, zero_division=0)
 
     metrics = {"Accuracy": acc, "Precision": prec, "Recall": rec, "F1": f1}
-    print(f"\n── {label} Classification Metrics ──────────────")
-    print(classification_report(
-        y_true,
-        y_pred,
-        labels=[0, 1],
-        target_names=["Down", "Up"],
-        zero_division=0,
-    ))
+    if verbose:
+        print(f"\n── {label} Classification Metrics ──────────────")
+        print(classification_report(
+            y_true,
+            y_pred,
+            labels=[0, 1],
+            target_names=["Down", "Up"],
+            zero_division=0,
+        ))
     return metrics
 
 
@@ -83,7 +87,8 @@ def classification_metrics(y_true: np.ndarray,
 
 def sharpe_ratio(returns: np.ndarray | pd.Series,
                  risk_free_rate: float = 0.04,
-                 periods_per_year: int = 252) -> float:
+                 periods_per_year: int = 252,
+                 verbose: bool = True) -> float:
     """
     Annualised Sharpe Ratio.
 
@@ -125,23 +130,26 @@ def sharpe_ratio(returns: np.ndarray | pd.Series,
     if volatility == 0:
         return 0.0
     sr = (excess.mean() / volatility) * np.sqrt(periods_per_year)
-    print(f"  Sharpe Ratio: {sr:.4f}")
+    if verbose:
+        print(f"  Sharpe Ratio: {sr:.4f}")
     return sr
 
 
-def max_drawdown(equity_curve: np.ndarray | pd.Series) -> float:
+def max_drawdown(equity_curve: np.ndarray | pd.Series, verbose: bool = True) -> float:
     """Maximum peak-to-trough drawdown."""
     equity = np.asarray(equity_curve)
     peak   = np.maximum.accumulate(equity)
     dd     = (equity - peak) / (peak + 1e-10)
     mdd    = dd.min()
-    print(f"  Max Drawdown: {mdd:.2%}")
+    if verbose:
+        print(f"  Max Drawdown: {mdd:.2%}")
     return mdd
 
 
 def max_drawdown_from_returns(
     returns: np.ndarray | pd.Series,
     initial_equity: float = 1.0,
+    verbose: bool = True,
 ) -> float:
     """Compute max drawdown from periodic returns including starting equity.
 
@@ -164,7 +172,7 @@ def max_drawdown_from_returns(
     if len(returns):
         equity_curve[1:] = initial_equity * np.cumprod(1.0 + returns)
 
-    return max_drawdown(equity_curve)
+    return max_drawdown(equity_curve, verbose=verbose)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -175,7 +183,9 @@ def plot_predictions(y_true: np.ndarray,
                      y_pred: np.ndarray,
                      label:  str = "Model",
                      dates:  pd.DatetimeIndex | None = None,
-                     save:   bool = True):
+                     save:   bool = True,
+                     show:   bool = True,
+                     save_path: str | None = None):
     """Overlay of actual vs predicted close prices."""
     fig, ax = plt.subplots(figsize=(14, 5))
     x = dates if dates is not None else np.arange(len(y_true))
@@ -188,13 +198,19 @@ def plot_predictions(y_true: np.ndarray,
     ax.legend()
     plt.tight_layout()
     if save:
-        path = os.path.join(RESULTS_DIR, f"{label.lower().replace(' ', '_')}_predictions.png")
+        path = save_path or os.path.join(
+            RESULTS_DIR, f"{label.lower().replace(' ', '_')}_predictions.png"
+        )
         plt.savefig(path, dpi=150)
         print(f"[Evaluator] Saved → {path}")
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
 
 
-def plot_loss_curves(history, save: bool = True):
+def plot_loss_curves(history, save: bool = True, show: bool = True,
+                     save_path: str | None = None):
     """Training vs validation loss for LSTM."""
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 
@@ -212,16 +228,21 @@ def plot_loss_curves(history, save: bool = True):
 
     plt.tight_layout()
     if save:
-        path = os.path.join(RESULTS_DIR, "lstm_loss_curves.png")
+        path = save_path or os.path.join(RESULTS_DIR, "lstm_loss_curves.png")
         plt.savefig(path, dpi=150)
         print(f"[Evaluator] Saved → {path}")
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
 
 
 def plot_feature_importance(model,
                              feature_names: list[str],
                              top_n: int = 20,
-                             save:  bool = True):
+                             save:  bool = True,
+                             show:  bool = True,
+                             save_path: str | None = None):
     """Horizontal bar chart of Random Forest feature importances."""
     importances = model.feature_importances_
     idx = np.argsort(importances)[-top_n:]
@@ -233,16 +254,21 @@ def plot_feature_importance(model,
     ax.set_xlabel("Importance")
     plt.tight_layout()
     if save:
-        path = os.path.join(RESULTS_DIR, "rf_feature_importance.png")
+        path = save_path or os.path.join(RESULTS_DIR, "rf_feature_importance.png")
         plt.savefig(path, dpi=150)
         print(f"[Evaluator] Saved → {path}")
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
 
 
 def plot_confusion_matrix(y_true: np.ndarray,
                            y_pred: np.ndarray,
                            label:  str = "RF Classifier",
-                           save:   bool = True):
+                           save:   bool = True,
+                           show:   bool = True,
+                           save_path: str | None = None):
     cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
     fig, ax = plt.subplots(figsize=(5, 4))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
@@ -253,16 +279,21 @@ def plot_confusion_matrix(y_true: np.ndarray,
     ax.set_xlabel("Predicted")
     plt.tight_layout()
     if save:
-        path = os.path.join(RESULTS_DIR, "rf_confusion_matrix.png")
+        path = save_path or os.path.join(RESULTS_DIR, "rf_confusion_matrix.png")
         plt.savefig(path, dpi=150)
         print(f"[Evaluator] Saved → {path}")
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
 
 
 def plot_equity_curve(equity_curve: pd.Series,
                       label: str = "Strategy",
                       benchmark: pd.Series | None = None,
-                      save: bool = True):
+                      save: bool = True,
+                      show: bool = True,
+                      save_path: str | None = None):
     """Plots portfolio equity curve vs an optional buy-and-hold benchmark."""
     fig, ax = plt.subplots(figsize=(12, 5))
     ax.plot(equity_curve.index, equity_curve.values, label=label, linewidth=1.5)
@@ -275,7 +306,12 @@ def plot_equity_curve(equity_curve: pd.Series,
     ax.legend()
     plt.tight_layout()
     if save:
-        path = os.path.join(RESULTS_DIR, f"{label.lower().replace(' ', '_')}_equity.png")
+        path = save_path or os.path.join(
+            RESULTS_DIR, f"{label.lower().replace(' ', '_')}_equity.png"
+        )
         plt.savefig(path, dpi=150)
         print(f"[Evaluator] Saved → {path}")
-    plt.show()
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)

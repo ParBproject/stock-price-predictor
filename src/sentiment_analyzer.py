@@ -68,13 +68,15 @@ def headline_effective_market_date(published_at: str) -> str:
 def fetch_news_headlines(query: str,
                          from_date: str,
                          to_date:   str,
-                         api_key:   str = NEWS_API_KEY,
+                         api_key:   str | None = None,
                          page_size: int = 100) -> list[dict]:
     """
     Fetches all available headline pages from NewsAPI.org.
     Returns a list of {date, headline} dicts.
     Requires a NewsAPI key: https://newsapi.org
     """
+    if api_key is None:
+        api_key = os.getenv("NEWS_API_KEY", "")
     if not api_key:
         print("[Sentiment] NEWS_API_KEY not set – returning empty list.")
         return []
@@ -139,15 +141,17 @@ def build_daily_sentiment(ticker:    str,
     """
     headlines = fetch_news_headlines(ticker, start, end)
 
-    if headlines:
-        records = [{"date": h["date"],
-                    "score": score_headline(h["headline"])}
-                   for h in headlines]
+    records = [{"date": h["date"],
+                "score": score_headline(h["headline"])}
+               for h in headlines
+               if h.get("date")]
+
+    if records:
         sent_df = pd.DataFrame(records)
         sent_df["date"] = pd.to_datetime(sent_df["date"])
         daily  = sent_df.groupby("date")["score"].mean()
         print(f"[Sentiment] Computed scores for {len(daily)} trading days "
-              f"from {len(headlines)} headlines.")
+              f"from {len(records)} headlines.")
     else:
         idx = pd.date_range(start, end, freq="B")   # business days
         daily = pd.Series(0.0, index=idx)
