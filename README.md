@@ -6,7 +6,7 @@ A leakage-aware study of **next-day Apple close forecasts**. A walk-forward rand
 
 <p>
   <a href="https://github.com/ParBproject/stock-price-predictor/actions/workflows/ci.yml"><img src="https://github.com/ParBproject/stock-price-predictor/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 3.11+" />
+  <img src="https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white" alt="Python 3.12+" />
   <img src="https://img.shields.io/badge/scikit--learn-Random%20Forest-F7931E?logo=scikitlearn&logoColor=white" alt="scikit-learn" />
   <img src="https://img.shields.io/badge/TensorFlow-LSTM-FF6F00?logo=tensorflow&logoColor=white" alt="TensorFlow" />
 </p>
@@ -87,7 +87,7 @@ Vendor-adjusted prices can be revised later, so a fresh download can nudge these
 
 ## Stack
 
-Python 3.11+, pandas, NumPy, scikit-learn, TensorFlow/Keras, SQLite, Backtrader, yfinance, statsmodels, matplotlib, pytest, Ruff, GitHub Actions.
+Python 3.12+, pandas, NumPy, scikit-learn, TensorFlow/Keras, SQLite, Backtrader, yfinance, statsmodels, matplotlib, pytest, Ruff, GitHub Actions.
 
 ## Pipeline
 
@@ -186,7 +186,7 @@ stock-price-predictor/
 
 ## Tests and CI
 
-GitHub Actions installs the pinned runtime and dev requirements on Python 3.11, runs Ruff on critical syntax errors, compiles the sources, and runs pytest. The suite covers target alignment, the walk-forward embargo, neutral sentiment, fee-aware sizing, equity/date alignment, the SQLite round trip, and an offline demo of the pipeline. It does not download a new market history or retrain the published models on every push.
+GitHub Actions installs the pinned runtime and dev requirements on Python 3.12, runs Ruff on critical syntax errors, compiles the sources, and runs pytest. The suite covers target alignment, the walk-forward embargo, neutral sentiment, fee-aware sizing, equity/date alignment, the SQLite round trip, and an offline demo of the pipeline. It does not download a new market history or retrain the published models on every push.
 
 ## Limitations and next steps
 
