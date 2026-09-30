@@ -10,8 +10,8 @@
   <text x="70" y="112" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="17" fill="#94a3b8">Regression-tested protections around time-series leakage, forecast alignment, and backtest execution</text>
 
   <g filter="url(#shadow)" font-family="Inter,Segoe UI,Arial,sans-serif">
-    <rect x="70" y="165" width="390" height="180" rx="22" fill="#0f172a" stroke="#3b82f6"/>
-    <text x="98" y="205" font-size="15" font-weight="700" fill="#60a5fa">TARGET ALIGNMENT</text>
+    <rect x="70" y="165" width="390" height="180" rx="22" fill="#0f172a" stroke="#10B981"/>
+    <text x="98" y="205" font-size="15" font-weight="700" fill="#10B981">TARGET ALIGNMENT</text>
     <text x="98" y="243" font-size="23" font-weight="700" fill="#f8fafc">No same-day target leakage</text>
     <text x="98" y="279" font-size="16" fill="#94a3b8">Features at t predict Close[t+1].</text>
     <text x="98" y="308" font-size="16" fill="#94a3b8">The final row is dropped when its future target is unknown.</text>
@@ -22,26 +22,26 @@
     <text x="533" y="279" font-size="16" fill="#94a3b8">Sentiment only propagates forward.</text>
     <text x="533" y="308" font-size="16" fill="#94a3b8">Pre-news dates remain neutral rather than seeing future data.</text>
 
-    <rect x="940" y="165" width="390" height="180" rx="22" fill="#0f172a" stroke="#8b5cf6"/>
-    <text x="968" y="205" font-size="15" font-weight="700" fill="#a78bfa">LSTM HOLDOUT</text>
+    <rect x="940" y="165" width="390" height="180" rx="22" fill="#0f172a" stroke="#059669"/>
+    <text x="968" y="205" font-size="15" font-weight="700" fill="#6EE7B7">LSTM HOLDOUT</text>
     <text x="968" y="243" font-size="23" font-weight="700" fill="#f8fafc">Training history preserved</text>
     <text x="968" y="279" font-size="16" fill="#94a3b8">First test window uses trailing train context.</text>
     <text x="968" y="308" font-size="16" fill="#94a3b8">No initial 60-day holdout block is discarded.</text>
 
-    <rect x="70" y="390" width="390" height="180" rx="22" fill="#0f172a" stroke="#f59e0b"/>
-    <text x="98" y="430" font-size="15" font-weight="700" fill="#fbbf24">BACKTEST SIGNALS</text>
+    <rect x="70" y="390" width="390" height="180" rx="22" fill="#0f172a" stroke="#34D399"/>
+    <text x="98" y="430" font-size="15" font-weight="700" fill="#A7F3D0">BACKTEST SIGNALS</text>
     <text x="98" y="468" font-size="23" font-weight="700" fill="#f8fafc">Forecast vs current close</text>
     <text x="98" y="504" font-size="16" fill="#94a3b8">Next-day predictions are compared with known Close[t].</text>
     <text x="98" y="533" font-size="16" fill="#94a3b8">No stale previous-day comparison.</text>
 
-    <rect x="505" y="390" width="390" height="180" rx="22" fill="#0f172a" stroke="#fb7185"/>
-    <text x="533" y="430" font-size="15" font-weight="700" fill="#fb7185">EXECUTION</text>
+    <rect x="505" y="390" width="390" height="180" rx="22" fill="#0f172a" stroke="#10B981"/>
+    <text x="533" y="430" font-size="15" font-weight="700" fill="#34D399">EXECUTION</text>
     <text x="533" y="468" font-size="23" font-weight="700" fill="#f8fafc">Commission-aware sizing</text>
     <text x="533" y="504" font-size="16" fill="#94a3b8">Share count uses spendable cash and fees.</text>
     <text x="533" y="533" font-size="16" fill="#94a3b8">Prevents deterministic margin rejection from oversizing.</text>
 
-    <rect x="940" y="390" width="390" height="180" rx="22" fill="#0f172a" stroke="#22d3ee"/>
-    <text x="968" y="430" font-size="15" font-weight="700" fill="#22d3ee">EQUITY CURVE</text>
+    <rect x="940" y="390" width="390" height="180" rx="22" fill="#0f172a" stroke="#6EE7B7"/>
+    <text x="968" y="430" font-size="15" font-weight="700" fill="#6EE7B7">EQUITY CURVE</text>
     <text x="968" y="468" font-size="23" font-weight="700" fill="#f8fafc">One value per bar</text>
     <text x="968" y="504" font-size="16" fill="#94a3b8">Portfolio observations and dates must align exactly.</text>
     <text x="968" y="533" font-size="16" fill="#94a3b8">Length mismatches fail explicitly in tests.</text>

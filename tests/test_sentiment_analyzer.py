@@ -202,6 +202,22 @@ def test_weekend_news_propagates_to_next_trading_day(monkeypatch):
     pd.testing.assert_series_equal(result, expected)
 
 
+def test_blank_headline_dates_use_neutral_sentiment(monkeypatch):
+    monkeypatch.setattr(
+        sentiment_analyzer,
+        "fetch_news_headlines",
+        lambda *args, **kwargs: [{"date": "", "headline": "undated"}],
+    )
+
+    trading_days = pd.date_range("2026-01-05", "2026-01-07", freq="B")
+    result = sentiment_analyzer.build_daily_sentiment(
+        "TEST", "2026-01-05", "2026-01-07", date_index=trading_days
+    )
+
+    expected = pd.Series(0.0, index=trading_days, name="Sentiment")
+    pd.testing.assert_series_equal(result, expected)
+
+
 def test_missing_news_uses_neutral_sentiment(monkeypatch):
     monkeypatch.setattr(
         sentiment_analyzer,

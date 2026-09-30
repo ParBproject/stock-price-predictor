@@ -100,7 +100,8 @@ def add_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
     for lag in [1, 2, 3, 5, 10]:
         df[f"Close_Lag_{lag}"] = close.shift(lag)
 
-    return df
+    # Zero volume makes percentage changes infinite; treat those as missing.
+    return df.replace([np.inf, -np.inf], np.nan)
 
 
 # ── Stationarity ────────────────────────────────────────────────────────────────
