@@ -139,7 +139,6 @@ The forecast command needs a network connection for Yahoo Finance data. It repri
 
 Notebooks are the interactive version of the same ideas. Install them with `pip install -r requirements-notebooks.txt`, then open `notebooks/eda.ipynb`, `notebooks/random_forest_model.ipynb`, `notebooks/lstm_model.ipynb`, and `notebooks/backtesting.ipynb`.
 
-
 ### Regenerate the live-demo data
 
 From the repository root, with the project dependencies installed:
@@ -195,7 +194,6 @@ GitHub Actions installs the pinned runtime and dev requirements on Python 3.12, 
 - The published forest is not grid-searched. `--tune` is available and was not used for these numbers.
 - Commission is a flat 0.1% of notional. There is no spread, slippage, or market-impact model.
 - Sentiment is absent unless an API key can actually cover the sample. The constant column is dropped.
-- In `notebooks/backtesting.ipynb`, `MLSignalStrategy.next()` returns while an order is pending without advancing the signal index, so a later bar can be paired with an earlier signal. That is a known bug ([#65](https://github.com/ParBproject/stock-price-predictor/issues/65)). The equity curve reported above does not use that method. It comes from `next_open_long_flat_returns`, which applies one signal to each target bar.
 - A production trading system would still need walk-forward across names, risk limits, and monitoring. This repository stops at a reproducible historical study.
 
 ## Responsible use
