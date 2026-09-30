@@ -1,7 +1,14 @@
 """Utilities for turning next-day forecasts into backtest trading signals."""
 
+import warnings
+from collections.abc import Mapping
+
 import numpy as np
 import pandas as pd
+
+# A handful of intentional gaps is normal. An overlap this small usually means
+# the price index and the signal index are not on the same clock.
+_LOW_BAR_MATCH_FRACTION = 0.5
 
 
 def next_day_direction_signals(
@@ -247,6 +254,121 @@ def buy_and_hold_equity_values(
     remaining_cash = initial_cash - entry_cost
     equity[entry_index:] = remaining_cash + shares * closes[entry_index:]
     return equity
+
+
+class SignalLookup:
+    """Timestamp-to-signal map built once and reused for every bar.
+
+    ``1`` enters long, ``0`` exits, and ``-1`` takes no new action.
+    Timezone-aware keys are stored as naive UTC, matching the clock a
+    Backtrader pandas feed reports for that same instant. A timestamp with no
+    entry returns ``-1``, so one skipped bar cannot shift later signals.
+    """
+
+    def __init__(self, signals):
+        self._signals = _signal_lookup(signals)
+
+    def __len__(self) -> int:
+        return len(self._signals)
+
+    def get(self, timestamp) -> int:
+        return self._signals.get(_bar_timestamp(timestamp), -1)
+
+    def require_bar_coverage(self, bar_timestamps) -> None:
+        """Raise when no bar shares a timestamp with this lookup.
+
+        Individual missing bars stay no-action. Zero overlap, or only a small
+        fraction of bars overlapping, means the price clock and the signal
+        clock disagree; a backtest would otherwise emit no trades and look
+        successful. Zero matches raise. A match share below half warns.
+        """
+        matched = 0
+        total = 0
+        for timestamp in bar_timestamps:
+            total += 1
+            if _bar_timestamp(timestamp) in self._signals:
+                matched += 1
+        if total == 0:
+            return
+        if matched == 0:
+            raise ValueError(
+                "no bar timestamps matched a signal; check that the price "
+                "index and the signal index use the same clock "
+                f"({total} bars, {len(self)} signals)"
+            )
+        if matched / total < _LOW_BAR_MATCH_FRACTION:
+            warnings.warn(
+                (
+                    f"only {matched} of {total} bar timestamps matched a signal; "
+                    "the price index and the signal index may not use the same clock"
+                ),
+                UserWarning,
+                stacklevel=2,
+            )
+
+
+def signal_for_timestamp(signals, timestamp) -> int:
+    """Return the trading signal that belongs to ``timestamp``.
+
+    This builds a :class:`SignalLookup` for one query. A backtest should build
+    that lookup once and call :meth:`SignalLookup.get` on each bar.
+    """
+    return SignalLookup(signals).get(timestamp)
+
+
+def _signal_lookup(signals) -> dict:
+    pairs = _signal_pairs(signals)
+    lookup = {}
+    for raw_timestamp, raw_signal in pairs:
+        key = _bar_timestamp(raw_timestamp)
+        if key in lookup:
+            raise ValueError(f"duplicate signal for timestamp {key.isoformat()}")
+        lookup[key] = _coerce_signal(raw_signal)
+    return lookup
+
+
+def _signal_pairs(signals):
+    if isinstance(signals, pd.Series):
+        if isinstance(signals.index, pd.MultiIndex):
+            raise TypeError("timestamps must be dates or datetimes")
+        return zip(signals.index, signals.to_numpy())
+    if isinstance(signals, Mapping):
+        return signals.items()
+    raise TypeError(
+        "signals must be a pandas Series or a mapping of timestamps to signals"
+    )
+
+
+def _bar_timestamp(value) -> pd.Timestamp:
+    if value is None or isinstance(
+        value, (bool, np.bool_, int, np.integer, float, np.floating)
+    ):
+        raise TypeError("timestamps must be dates or datetimes")
+    try:
+        timestamp = pd.Timestamp(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("timestamps must be valid dates or datetimes") from exc
+    if pd.isna(timestamp):
+        raise ValueError("timestamps must be valid dates or datetimes")
+    if timestamp.tzinfo is not None:
+        timestamp = timestamp.tz_convert("UTC").tz_localize(None)
+    return timestamp
+
+
+def _coerce_signal(value) -> int:
+    if isinstance(value, (bool, np.bool_)):
+        raise TypeError("signal values must be integers, not booleans")
+    if isinstance(value, (int, np.integer)):
+        signal = int(value)
+    elif isinstance(value, (float, np.floating)):
+        if not np.isfinite(value) or not float(value).is_integer():
+            raise ValueError("signal values must be -1, 0, or 1")
+        signal = int(value)
+    else:
+        raise TypeError("signal values must be integers")
+    if signal not in (-1, 0, 1):
+        raise ValueError("signal values must be -1, 0, or 1")
+    return signal
 
 
 def is_terminal_order(order) -> bool:
